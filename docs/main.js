@@ -500,8 +500,7 @@ async function generateAll() {
     setStatus("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
-    btn.textContent =
-      "Generate " + ($("format").value === "stl" ? "STL" : "STEP") + " files";
+    btn.textContent = "Generate files";
   }
 }
 
@@ -513,13 +512,7 @@ async function generateAll() {
     await bootKernel();
     setStatus("Ready. Adjust parameters and click Generate.", "ok");
     const btn = $("generate");
-    const fmt = $("format");
-    const updateBtnLabel = () => {
-      btn.textContent =
-        "Generate " + (fmt.value === "stl" ? "STL" : "STEP") + " files";
-    };
-    updateBtnLabel();
-    fmt.addEventListener("change", updateBtnLabel);
+    btn.textContent = "Generate files";
     btn.disabled = false;
     btn.addEventListener("click", generateAll);
   } catch (e) {
