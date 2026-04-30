@@ -179,18 +179,23 @@ button:not(:disabled):hover {
 
 .preview-toggles {
   display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 1rem;
   margin: 0.25rem 0 1rem;
   font-size: 0.9rem;
 }
-.toggle {
-  display: inline-flex;
+.preview-toggles .toggle {
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.4rem;
   cursor: pointer;
   user-select: none;
   font-weight: 500;
   margin: 0;
+  width: auto;
 }
 .toggle input[type="checkbox"] {
   margin: 0;
