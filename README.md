@@ -18,11 +18,6 @@ CAD kernel used by FreeCAD and OnShape).
   mortise/tenon guide profiles plus a dovetail slot in its back for the rail.
 - **`pantorouter-template-rail.step`** — slides into the back of the template
   body; engages the pantorouter's T-track.
-- **`pantorouter-template-test-mortise.step` / `pantorouter-template-test-tenon.step`**
-  — small test pieces (~20 mm). Print these first to verify the dovetail joint
-  clearance before committing to the full template.
-- **`pantorouter-template-flat-mortise.step` / `pantorouter-template-flat-tenon.step`**
-  — 2 mm cross-section wafers for measuring the joint gap directly with calipers.
 
 ## Design
 
