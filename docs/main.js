@@ -5,6 +5,8 @@
 
 import opencascade from "https://cdn.jsdelivr.net/npm/replicad-opencascadejs@0.20.0/src/replicad_single.js";
 import * as replicad from "https://cdn.jsdelivr.net/npm/replicad@0.21.0/dist/replicad.js";
+import * as THREE from "https://esm.sh/three@0.160.0";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
 // ── Constants (pulled from the .py reference) ───────────────────────────────
 const NOZZLE_W = 0.4;
@@ -243,6 +245,138 @@ function buildRail(d) {
   return rail;
 }
 
+// ── 3D preview (three.js) ───────────────────────────────────────────────────
+let scene, camera, renderer, controls;
+let previewObjects = []; // current meshes/edges to dispose between renders
+
+function initPreview() {
+  const canvas = document.getElementById("preview");
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d0d0d);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+
+  camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
+  camera.up.set(0, 0, 1); // Z up — matches the geometry's coord system
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.7);
+  key.position.set(80, -120, 200);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+  fill.position.set(-100, 80, 50);
+  scene.add(fill);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+
+  // Default view (camera back from origin) until shapes load.
+  camera.position.set(120, -180, 100);
+  controls.target.set(0, 0, 5);
+
+  resizePreview();
+  window.addEventListener("resize", resizePreview);
+
+  (function animate() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  })();
+}
+
+function resizePreview() {
+  if (!renderer) return;
+  const canvas = renderer.domElement;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function clearPreview() {
+  for (const obj of previewObjects) {
+    scene.remove(obj);
+    obj.geometry?.dispose();
+    obj.material?.dispose();
+  }
+  previewObjects = [];
+}
+
+function addShapeToPreview(shape, color) {
+  const meshOpts = { tolerance: 0.05, angularTolerance: 30 };
+  const m = shape.mesh(meshOpts);
+
+  // replicad's mesh API has shifted slightly across versions — accept either
+  // `.triangles` (newer) or `.indices` (older) for the index buffer.
+  const indices = m.triangles || m.indices;
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(m.vertices), 3)
+  );
+  if (m.normals) {
+    geom.setAttribute(
+      "normal",
+      new THREE.BufferAttribute(new Float32Array(m.normals), 3)
+    );
+  }
+  if (indices) {
+    geom.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+  }
+  if (!m.normals) geom.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.55,
+    metalness: 0.05,
+    flatShading: false,
+  });
+  const mesh = new THREE.Mesh(geom, mat);
+  scene.add(mesh);
+  previewObjects.push(mesh);
+
+  // Crisp edges so the part outline reads cleanly.
+  try {
+    const e = shape.meshEdges();
+    if (e?.lines?.length) {
+      const eGeom = new THREE.BufferGeometry();
+      eGeom.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(e.lines), 3)
+      );
+      const eMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+      const edges = new THREE.LineSegments(eGeom, eMat);
+      scene.add(edges);
+      previewObjects.push(edges);
+    }
+  } catch (_) {
+    // meshEdges isn't available on this version — fall back to silhouette only.
+  }
+}
+
+function fitCameraToScene() {
+  const box = new THREE.Box3();
+  for (const obj of previewObjects) {
+    if (obj.isMesh) box.expandByObject(obj);
+  }
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = maxDim * 1.6;
+  camera.position.set(
+    center.x + dist * 0.5,
+    center.y - dist,
+    center.z + dist * 0.4
+  );
+  controls.target.copy(center);
+  controls.update();
+}
+
 // ── UI plumbing ─────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
@@ -298,24 +432,27 @@ async function generateAll() {
   btn.disabled = true;
   btn.textContent = "Generating…";
   clearDownloads();
+  clearPreview();
   setStatus("Building geometry…", "info");
 
   try {
     const d = deriveSizes(params);
 
     const parts = [
-      ["pantorouter-template-body.step", () => buildTemplate(d)],
-      ["pantorouter-template-rail.step", () => buildRail(d)],
+      ["pantorouter-template-body.step", () => buildTemplate(d), 0xb0b0b0],
+      ["pantorouter-template-rail.step", () => buildRail(d),     0xd9882a],
     ];
 
-    for (const [filename, build] of parts) {
+    for (const [filename, build, color] of parts) {
       setStatus(`Building ${filename}…`, "info");
       // Yield to the UI thread so the status text actually renders.
       await new Promise((r) => setTimeout(r, 0));
       const shape = build();
       const blob = await shape.blobSTEP();
       addDownload(filename, blob);
+      addShapeToPreview(shape, color);
     }
+    fitCameraToScene();
 
     setStatus(
       `Done — ${parts.length} files ready. Outer: ${d.OUTER_W.toFixed(1)} × ${d.OUTER_L.toFixed(
@@ -334,6 +471,7 @@ async function generateAll() {
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 (async () => {
+  initPreview();
   setStatus("Loading CAD kernel (~5 MB) — this only happens once.", "info");
   try {
     await bootKernel();
