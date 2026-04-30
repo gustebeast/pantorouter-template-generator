@@ -233,23 +233,13 @@ button:not(:disabled):hover {
 .swatch-body { background: #b0b0b0; }
 .swatch-rail { background: #d9882a; }
 
-details.collapsed { margin-top: 1rem; }
-details summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--accent);
+.instructions {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  font-size: 0.95rem;
 }
-dl { margin: 0.5rem 0; }
-dt {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-  color: var(--fg);
-}
-dd {
-  margin: 0.1rem 0 0 1rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+.instructions li {
+  margin: 0.3rem 0;
 }
 
 footer {

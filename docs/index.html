@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pantorouter Template Generator</title>
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <header>
@@ -12,7 +12,8 @@
     <p class="subtitle">
       Generates a parametric mortise/tenon template + matching rail for
       <a href="https://pantorouter.com" target="_blank" rel="noopener">The Pantorouter</a>,
-      based on "Pantorouter Tenon Template" by FozzTexx (CC0).
+      based on "Pantorouter Tenon Template" by FozzTexx (CC0). The rail
+      prints separately to avoid needing structural support during printing.
     </p>
   </header>
 
@@ -119,15 +120,14 @@
       <p class="muted">Click a file to download.</p>
       <ul id="downloads" class="downloads"></ul>
 
-      <details class="collapsed">
-        <summary>What gets generated?</summary>
-        <dl>
-          <dt>pantorouter-template-body</dt>
-          <dd>The main piece — routes the mortise and tenon. Has a dovetail slot in its back to receive the rail.</dd>
-          <dt>pantorouter-template-rail</dt>
-          <dd>Slides into the back of the body. Engages the pantorouter's T-track.</dd>
-        </dl>
-      </details>
+      <h2>Instructions</h2>
+      <ol class="instructions">
+        <li>Print the body and the rail.</li>
+        <li>Apply super glue to the rail.</li>
+        <li>Slide the rail into the body.</li>
+        <li>Wait for the glue to cure.</li>
+        <li>Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate.</li>
+      </ol>
     </section>
   </main>
 
