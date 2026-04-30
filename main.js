@@ -328,6 +328,14 @@ function buildRail(d) {
   return rail;
 }
 
+// Visual-only "assembled" view: body and rail fused together in their
+// as-mounted positions. Not for printing — print the body and rail
+// separately and slide them together. Useful for previewing the joint
+// geometry in a single STEP/STL file.
+function buildAssembly(d) {
+  return buildTemplate(d).fuse(buildRail(d));
+}
+
 // ── 3D preview (three.js) ───────────────────────────────────────────────────
 let scene, camera, renderer, controls;
 // Three.js objects keyed by part name ("body" / "rail") so each can be
@@ -586,8 +594,12 @@ async function generateAll() {
     const format = $("format").value === "stl" ? "stl" : "step";
 
     const parts = [
-      ["body", "pantorouter-template-body", () => buildTemplate(d), 0xb0b0b0],
-      ["rail", "pantorouter-template-rail", () => buildRail(d),     0xd9882a],
+      ["body",      "pantorouter-template-body",      () => buildTemplate(d), 0xb0b0b0],
+      ["rail",      "pantorouter-template-rail",      () => buildRail(d),     0xd9882a],
+      // Assembled is a visual reference only; fused body+rail in their
+      // as-mounted positions. Skipped for the preview render (already
+      // rendered as separate body+rail meshes there).
+      ["assembled", "pantorouter-template-assembled", () => buildAssembly(d), null],
     ];
 
     for (const [partKey, baseName, build, color] of parts) {
@@ -598,7 +610,9 @@ async function generateAll() {
       const shape = build();
       const blob = format === "stl" ? await shape.blobSTL() : await shape.blobSTEP();
       addDownload(filename, blob);
-      addShapeToPreview(shape, color, partKey);
+      // The assembled piece is identical (visually) to body+rail
+      // already rendered — don't add it twice to the 3D preview.
+      if (color !== null) addShapeToPreview(shape, color, partKey);
     }
     fitCameraToScene();
     document.getElementById("preview-overlay")?.classList.add("hidden");
