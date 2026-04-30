@@ -32,12 +32,22 @@ lamp" profile (lead-in chamfer + 45° flares + dulled tip), with all walls
 Designed for **PA6-GF** with a 0.4 mm nozzle. Tunable shrink compensation
 for other materials.
 
+## Examples
+
+Pre-generated reference outputs at the default parameters
+(20 × 70 mm tenon, 12.7 mm bit, 12 mm bushing) live in
+[`example/`](example/):
+
+- `pantorouter-template-body.step`
+- `pantorouter-template-rail.step`
+- `pantorouter-template-assembled.step` — both pieces in their
+  as-mounted positions, for visual verification only.
+
 ## Local development
 
 The site is plain static HTML/JS; no build step. To preview locally:
 
 ```sh
-cd docs
 python3 -m http.server 8080
 # open http://localhost:8080
 ```

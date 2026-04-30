@@ -4,3 +4,7 @@
 *.stl
 .DS_Store
 node_modules/
+
+# Allow checked-in example output to be tracked despite the *.step ignore.
+!example/*.step
+!example/*.stl
