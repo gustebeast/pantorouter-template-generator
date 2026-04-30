@@ -53,7 +53,7 @@ const STOP_LEN = 8.0;
 
 const CENTER_DIAMETER = 6.0;
 const SCREW_DIAMETER = 4.0;
-const PILOT_DIA = 1.0;
+const PILOT_DIA = 3.169;
 const REFERENCE_H = 1.0;
 const CENTER_MARK_SIZE = 1.5;
 
