@@ -1,0 +1,9 @@
+test*.step
+test*.stl
+*.zip
+*.log
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
