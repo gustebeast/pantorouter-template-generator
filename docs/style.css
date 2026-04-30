@@ -233,6 +233,29 @@ button:not(:disabled):hover {
 .swatch-body { background: #b0b0b0; }
 .swatch-rail { background: #d9882a; }
 
+/* Units radio row */
+.radio-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.radio-row .radio {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  width: auto;
+}
+.radio input[type="radio"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .instructions {
   margin: 0 0 1rem;
   padding-left: 1.25rem;

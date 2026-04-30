@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pantorouter Template Generator</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
   <header>
@@ -21,20 +21,34 @@
     <section class="form-section">
       <form id="params">
         <fieldset>
+          <legend>Units</legend>
+          <div class="radio-row">
+            <label class="radio">
+              <input type="radio" name="units" value="mm" checked />
+              Millimeters
+            </label>
+            <label class="radio">
+              <input type="radio" name="units" value="in" />
+              Inches
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend>Tenon / Mortise</legend>
 
           <label>
-            Width (short axis, mm)
+            Width (short axis, <span class="unit-label">mm</span>)
             <input type="number" id="tenonWidth" value="20" step="0.1" min="0.1" />
           </label>
 
           <label>
-            Length (long axis, mm)
+            Length (long axis, <span class="unit-label">mm</span>)
             <input type="number" id="tenonLength" value="70" step="0.1" min="0.1" />
           </label>
 
           <label>
-            Corner radius (mm)
+            Corner radius (<span class="unit-label">mm</span>)
             <span class="hint">
               Smallest valid value is bit/2 (default if blank). Larger values
               round the corners more (half the short axis = fully rounded ends).
@@ -48,12 +62,12 @@
           <legend>Cutter</legend>
 
           <label>
-            Router bit diameter (mm)
+            Router bit diameter (<span class="unit-label">mm</span>)
             <input type="number" id="bit" value="12.7" step="0.1" min="0.1" />
           </label>
 
           <label>
-            Guide bushing diameter (mm)
+            Guide bushing diameter (<span class="unit-label">mm</span>)
             <input type="number" id="bearing" value="12" step="0.1" min="0.1" />
           </label>
         </fieldset>
@@ -72,7 +86,7 @@
           </label>
 
           <label>
-            Template depth (mm)
+            Template depth (<span class="unit-label">mm</span>)
             <input type="number" id="templateDepth" value="12" step="0.1" min="1" />
           </label>
         </fieldset>
@@ -139,6 +153,6 @@
     </p>
   </footer>
 
-  <script type="module" src="main.js?v=4"></script>
+  <script type="module" src="main.js?v=6"></script>
 </body>
 </html>
