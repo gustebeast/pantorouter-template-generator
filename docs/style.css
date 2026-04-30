@@ -164,6 +164,10 @@ button:not(:disabled):hover {
 }
 
 /* Preview canvas */
+.preview-wrap {
+  position: relative;
+  margin: 0.25rem 0 0.5rem;
+}
 #preview {
   display: block;
   width: 100%;
@@ -172,10 +176,26 @@ button:not(:disabled):hover {
   border: 1px solid var(--border);
   border-radius: 4px;
   cursor: grab;
-  margin: 0.25rem 0 0.5rem;
 }
 #preview:active { cursor: grabbing; }
 .preview-hint { margin-top: 0; }
+
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  background: rgba(13, 13, 13, 0.55);
+  border-radius: 4px;
+  transition: opacity 200ms ease;
+}
+.preview-overlay.hidden { opacity: 0; }
 
 .preview-toggles {
   display: flex;
