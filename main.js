@@ -26,7 +26,7 @@ const NOZZLE_W = 0.4;
 
 const RAIL_NECK_W = 4.0;
 const RAIL_CATCH_W = 6.0;
-const RAIL_TOP_FLAT = 1.169;
+const RAIL_TOP_FLAT = 3.169;
 const RAIL_BASE_W = 4.3;
 const RAIL_BASE_H = 1.8;
 const RAIL_CLEARANCE = 0.2;
