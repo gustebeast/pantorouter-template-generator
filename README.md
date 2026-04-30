@@ -21,11 +21,11 @@ CAD kernel used by FreeCAD and OnShape).
 
 ## Design
 
-Based on FozzTexx's [Pantorouter Tenon Template](https://www.printables.com/)
-(CC0 1.0). Pantograph math verified against The Pantorouter Co.'s sizing
-calculator. Dovetail rail is a separately-printed piece keyed in via a
-self-supporting "lava lamp" profile (lead-in chamfer + 45° flares + dulled
-tip), with all walls ≤ 45° from vertical for FDM printability.
+Based on "Pantorouter Tenon Template" by FozzTexx (CC0 1.0). Pantograph
+math verified against The Pantorouter Co.'s sizing calculator. Dovetail
+rail is a separately-printed piece keyed in via a self-supporting "lava
+lamp" profile (lead-in chamfer + 45° flares + dulled tip), with all walls
+≤ 45° from vertical for FDM printability.
 
 ## Materials
 
