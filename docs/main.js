@@ -469,18 +469,20 @@ async function generateAll() {
 
   try {
     const d = deriveSizes(params);
+    const format = $("format").value === "stl" ? "stl" : "step";
 
     const parts = [
-      ["body", "pantorouter-template-body.step", () => buildTemplate(d), 0xb0b0b0],
-      ["rail", "pantorouter-template-rail.step", () => buildRail(d),     0xd9882a],
+      ["body", "pantorouter-template-body", () => buildTemplate(d), 0xb0b0b0],
+      ["rail", "pantorouter-template-rail", () => buildRail(d),     0xd9882a],
     ];
 
-    for (const [partKey, filename, build, color] of parts) {
+    for (const [partKey, baseName, build, color] of parts) {
+      const filename = `${baseName}.${format}`;
       setStatus(`Building ${filename}…`, "info");
       // Yield to the UI thread so the status text actually renders.
       await new Promise((r) => setTimeout(r, 0));
       const shape = build();
-      const blob = await shape.blobSTEP();
+      const blob = format === "stl" ? await shape.blobSTL() : await shape.blobSTEP();
       addDownload(filename, blob);
       addShapeToPreview(shape, color, partKey);
     }
@@ -498,7 +500,8 @@ async function generateAll() {
     setStatus("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Generate STEP files";
+    btn.textContent =
+      "Generate " + ($("format").value === "stl" ? "STL" : "STEP") + " files";
   }
 }
 
@@ -510,8 +513,14 @@ async function generateAll() {
     await bootKernel();
     setStatus("Ready. Adjust parameters and click Generate.", "ok");
     const btn = $("generate");
+    const fmt = $("format");
+    const updateBtnLabel = () => {
+      btn.textContent =
+        "Generate " + (fmt.value === "stl" ? "STL" : "STEP") + " files";
+    };
+    updateBtnLabel();
+    fmt.addEventListener("change", updateBtnLabel);
     btn.disabled = false;
-    btn.textContent = "Generate STEP files";
     btn.addEventListener("click", generateAll);
   } catch (e) {
     console.error(e);

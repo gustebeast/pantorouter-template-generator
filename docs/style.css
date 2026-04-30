@@ -69,7 +69,8 @@ label {
   padding: 0 0.25rem;
   border-radius: 3px;
 }
-input[type="number"] {
+input[type="number"],
+select {
   display: block;
   width: 100%;
   padding: 0.45rem 0.6rem;
@@ -81,7 +82,8 @@ input[type="number"] {
   font-size: 1rem;
   font-family: inherit;
 }
-input[type="number"]:focus {
+input[type="number"]:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
