@@ -26,12 +26,17 @@ const NOZZLE_W = 0.4;
 
 const RAIL_NECK_W = 4.0;
 const RAIL_CATCH_W = 6.0;
-const RAIL_TOP_FLAT = 1.2;
-const RAIL_BASE_W = 8.0;
+const RAIL_TOP_FLAT = 1.169;
+const RAIL_BASE_W = 4.3;
 const RAIL_BASE_H = 1.8;
 const RAIL_CLEARANCE = 0.2;
 
-const RAIL_LEAD_IN_LEN = 0.8;
+// Lead-in chamfer length sized so the rail's bottom (where the dovetail
+// meets the rectangular base) is exactly 4.3 mm wide at the current
+// clearance, matching the pantorouter T-track:
+//   rail_bottom = NECK_W + 2·LEAD_IN_DX − 2·c = 4.3
+//   LEAD_IN_DX  = 0.35   →   LEAD_IN_LEN = 0.35·√2 ≈ 0.4950 mm.
+const RAIL_LEAD_IN_LEN = 0.495;
 
 const _LEAD_IN_DX = RAIL_LEAD_IN_LEN * Math.sin((45 * Math.PI) / 180);
 const _LEAD_IN_DZ = RAIL_LEAD_IN_LEN * Math.cos((45 * Math.PI) / 180);
