@@ -477,6 +477,7 @@ async function generateAll() {
       addShapeToPreview(shape, color, partKey);
     }
     fitCameraToScene();
+    document.getElementById("preview-overlay")?.classList.add("hidden");
 
     setStatus(
       `Done — ${parts.length} files ready. Outer: ${d.OUTER_W.toFixed(1)} × ${d.OUTER_L.toFixed(
