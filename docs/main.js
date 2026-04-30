@@ -263,12 +263,12 @@ function initPreview() {
   camera.up.set(0, 0, 1); // Z up — matches the geometry's coord system
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const key = new THREE.DirectionalLight(0xffffff, 0.7);
-  key.position.set(80, -120, 200);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.25);
-  fill.position.set(-100, 80, 50);
-  scene.add(fill);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  keyLight.position.set(80, -120, 200);
+  scene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.25);
+  fillLight.position.set(-100, 80, 50);
+  scene.add(fillLight);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -281,13 +281,15 @@ function initPreview() {
   window.addEventListener("resize", resizePreview);
 
   // Wire visibility checkboxes (one per part).
-  for (const key of Object.keys(previewParts)) {
-    const cb = document.getElementById("show-" + key);
-    if (cb) {
-      cb.addEventListener("change", () => {
-        for (const obj of previewParts[key]) obj.visible = cb.checked;
-      });
+  for (const partKey of ["body", "rail"]) {
+    const cb = document.getElementById("show-" + partKey);
+    if (!cb) {
+      console.warn("[preview] checkbox not found:", "show-" + partKey);
+      continue;
     }
+    const handler = () => setPartVisibility(partKey, cb.checked);
+    cb.addEventListener("change", handler);
+    cb.addEventListener("input", handler);
   }
 
   (function animate() {
@@ -378,6 +380,12 @@ function addShapeToPreview(shape, color, partKey) {
 function isPartVisible(partKey) {
   const cb = document.getElementById("show-" + partKey);
   return cb ? cb.checked : true;
+}
+
+function setPartVisibility(partKey, visible) {
+  const objs = previewParts[partKey];
+  if (!objs) return;
+  for (const obj of objs) obj.visible = visible;
 }
 
 function fitCameraToScene() {
