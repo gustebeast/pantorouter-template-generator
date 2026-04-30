@@ -247,7 +247,9 @@ function buildRail(d) {
 
 // ── 3D preview (three.js) ───────────────────────────────────────────────────
 let scene, camera, renderer, controls;
-let previewObjects = []; // current meshes/edges to dispose between renders
+// Three.js objects keyed by part name ("body" / "rail") so each can be
+// toggled independently via the checkboxes below the canvas.
+const previewParts = { body: [], rail: [] };
 
 function initPreview() {
   const canvas = document.getElementById("preview");
@@ -278,6 +280,16 @@ function initPreview() {
   resizePreview();
   window.addEventListener("resize", resizePreview);
 
+  // Wire visibility checkboxes (one per part).
+  for (const key of Object.keys(previewParts)) {
+    const cb = document.getElementById("show-" + key);
+    if (cb) {
+      cb.addEventListener("change", () => {
+        for (const obj of previewParts[key]) obj.visible = cb.checked;
+      });
+    }
+  }
+
   (function animate() {
     controls.update();
     renderer.render(scene, camera);
@@ -297,15 +309,17 @@ function resizePreview() {
 }
 
 function clearPreview() {
-  for (const obj of previewObjects) {
-    scene.remove(obj);
-    obj.geometry?.dispose();
-    obj.material?.dispose();
+  for (const key of Object.keys(previewParts)) {
+    for (const obj of previewParts[key]) {
+      scene.remove(obj);
+      obj.geometry?.dispose();
+      obj.material?.dispose();
+    }
+    previewParts[key] = [];
   }
-  previewObjects = [];
 }
 
-function addShapeToPreview(shape, color) {
+function addShapeToPreview(shape, color, partKey) {
   const meshOpts = { tolerance: 0.05, angularTolerance: 30 };
   const m = shape.mesh(meshOpts);
 
@@ -335,9 +349,11 @@ function addShapeToPreview(shape, color) {
     metalness: 0.05,
     flatShading: false,
   });
+  const visible = isPartVisible(partKey);
   const mesh = new THREE.Mesh(geom, mat);
+  mesh.visible = visible;
   scene.add(mesh);
-  previewObjects.push(mesh);
+  previewParts[partKey].push(mesh);
 
   // Crisp edges so the part outline reads cleanly.
   try {
@@ -350,18 +366,26 @@ function addShapeToPreview(shape, color) {
       );
       const eMat = new THREE.LineBasicMaterial({ color: 0x000000 });
       const edges = new THREE.LineSegments(eGeom, eMat);
+      edges.visible = visible;
       scene.add(edges);
-      previewObjects.push(edges);
+      previewParts[partKey].push(edges);
     }
   } catch (_) {
     // meshEdges isn't available on this version — fall back to silhouette only.
   }
 }
 
+function isPartVisible(partKey) {
+  const cb = document.getElementById("show-" + partKey);
+  return cb ? cb.checked : true;
+}
+
 function fitCameraToScene() {
   const box = new THREE.Box3();
-  for (const obj of previewObjects) {
-    if (obj.isMesh) box.expandByObject(obj);
+  for (const key of Object.keys(previewParts)) {
+    for (const obj of previewParts[key]) {
+      if (obj.isMesh) box.expandByObject(obj);
+    }
   }
   if (box.isEmpty()) return;
   const center = box.getCenter(new THREE.Vector3());
@@ -439,18 +463,18 @@ async function generateAll() {
     const d = deriveSizes(params);
 
     const parts = [
-      ["pantorouter-template-body.step", () => buildTemplate(d), 0xb0b0b0],
-      ["pantorouter-template-rail.step", () => buildRail(d),     0xd9882a],
+      ["body", "pantorouter-template-body.step", () => buildTemplate(d), 0xb0b0b0],
+      ["rail", "pantorouter-template-rail.step", () => buildRail(d),     0xd9882a],
     ];
 
-    for (const [filename, build, color] of parts) {
+    for (const [partKey, filename, build, color] of parts) {
       setStatus(`Building ${filename}…`, "info");
       // Yield to the UI thread so the status text actually renders.
       await new Promise((r) => setTimeout(r, 0));
       const shape = build();
       const blob = await shape.blobSTEP();
       addDownload(filename, blob);
-      addShapeToPreview(shape, color);
+      addShapeToPreview(shape, color, partKey);
     }
     fitCameraToScene();
 

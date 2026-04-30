@@ -177,6 +177,35 @@ button:not(:disabled):hover {
 #preview:active { cursor: grabbing; }
 .preview-hint { margin-top: 0; }
 
+.preview-toggles {
+  display: flex;
+  gap: 1rem;
+  margin: 0.25rem 0 1rem;
+  font-size: 0.9rem;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  margin: 0;
+}
+.toggle input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+.swatch-body { background: #b0b0b0; }
+.swatch-rail { background: #d9882a; }
+
 details.collapsed { margin-top: 1rem; }
 details summary {
   cursor: pointer;

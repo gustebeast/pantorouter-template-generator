@@ -88,9 +88,19 @@
     <section class="output-section">
       <h2>Preview</h2>
       <p class="muted preview-hint">
-        Drag to rotate, scroll to zoom. Body is gray, rail is orange.
+        Drag to rotate, scroll to zoom.
       </p>
       <canvas id="preview" aria-label="3D preview"></canvas>
+      <div class="preview-toggles">
+        <label class="toggle">
+          <input type="checkbox" id="show-body" checked />
+          <span class="swatch swatch-body"></span> Body
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="show-rail" checked />
+          <span class="swatch swatch-rail"></span> Rail
+        </label>
+      </div>
 
       <h2>Files</h2>
       <p class="muted">
