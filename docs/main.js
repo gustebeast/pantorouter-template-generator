@@ -37,13 +37,6 @@ const PILOT_DIA = 1.0;
 const REFERENCE_H = 1.0;
 const CENTER_MARK_SIZE = 1.5;
 
-const TEST_LENGTH = 20.0;
-const TEST_STOP_LEN = 10.0;
-const TEST_WALL_T = 1.2;
-const TEST_FLAT_THICK = 2.0;
-
-const INCH = 25.4;
-
 // ── Kernel boot ─────────────────────────────────────────────────────────────
 let kernelReady = false;
 
@@ -250,42 +243,6 @@ function buildRail(d) {
   return rail;
 }
 
-function buildTestMortise() {
-  const outerW = RAIL_CATCH_W + 2 * TEST_WALL_T;
-  const outerH = BASE_DEPTH;
-  let block = replicad
-    .drawRectangle(outerW, TEST_LENGTH)
-    .sketchOnPlane("XY", 0)
-    .extrude(outerH);
-  const slotLength = TEST_LENGTH - TEST_STOP_LEN + 2.0;
-  const slotCenterY = -TEST_STOP_LEN / 2 - 1.0;
-  return block.cut(slotDovetailSolid(slotLength, slotCenterY));
-}
-
-function buildTestTenon() {
-  const base = railBaseSolid(TEST_LENGTH, 0);
-  const dtLen = TEST_LENGTH - TEST_STOP_LEN - RAIL_CLEARANCE;
-  const dtCenterY = -TEST_STOP_LEN / 2 - RAIL_CLEARANCE / 2;
-  const dt = railDovetailSolid(dtLen, dtCenterY);
-  return base.fuse(dt);
-}
-
-function buildFlatMortise() {
-  const outerW = RAIL_CATCH_W + 2 * TEST_WALL_T;
-  const outerH = BASE_DEPTH + RAIL_BASE_H;
-  let block = replicad
-    .drawRectangle(outerW, TEST_FLAT_THICK)
-    .sketchOnPlane("XY", -RAIL_BASE_H)
-    .extrude(outerH);
-  return block.cut(slotDovetailSolid(TEST_FLAT_THICK + 2.0, 0));
-}
-
-function buildFlatTenon() {
-  const base = railBaseSolid(TEST_FLAT_THICK, 0);
-  const dt = railDovetailSolid(TEST_FLAT_THICK, 0);
-  return base.fuse(dt);
-}
-
 // ── UI plumbing ─────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
@@ -349,10 +306,6 @@ async function generateAll() {
     const parts = [
       ["pantorouter-template-body.step", () => buildTemplate(d)],
       ["pantorouter-template-rail.step", () => buildRail(d)],
-      ["pantorouter-template-test-mortise.step", () => buildTestMortise()],
-      ["pantorouter-template-test-tenon.step", () => buildTestTenon()],
-      ["pantorouter-template-flat-mortise.step", () => buildFlatMortise()],
-      ["pantorouter-template-flat-tenon.step", () => buildFlatTenon()],
     ];
 
     for (const [filename, build] of parts) {
