@@ -8,6 +8,19 @@ import * as replicad from "https://cdn.jsdelivr.net/npm/replicad@0.21.0/dist/rep
 import * as THREE from "https://esm.sh/three@0.160.0";
 import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
+// ── Units ───────────────────────────────────────────────────────────────────
+const INCH_MM = 25.4;
+let currentUnits = "mm"; // tracks the radio group below the form
+
+// Fields whose values are physical dimensions and must be converted when
+// the user toggles between mm and inches. Bearing intentionally included
+// even though many woodworking guide bushings are sized in mm — if the
+// user wants to keep mm-only for the bearing, they can switch back.
+const UNIT_FIELDS = [
+  "tenonWidth", "tenonLength", "tenonRadius",
+  "bit", "bearing", "templateDepth",
+];
+
 // ── Constants (pulled from the .py reference) ───────────────────────────────
 const NOZZLE_W = 0.4;
 
@@ -177,6 +190,10 @@ function deriveSizes(p) {
   return {
     OUTER_W, OUTER_L, OUTER_R, INNER_W, INNER_L, INNER_R,
     TEMPLATE_DEPTH: p.templateDepth,
+    // Pass display values through for the debossed label.
+    displayWidth: p.displayWidth,
+    displayLength: p.displayLength,
+    displayUnits: p.displayUnits,
   };
 }
 
@@ -217,7 +234,68 @@ function buildTemplate(d) {
     );
   }
 
+  // Debossed joint-size label on the pocket floor (visible from above
+  // when looking into the empty pocket). Uses a monospace font for
+  // near-uniform stroke width.
+  body = debossLabelOnPocketFloor(body, d);
+
   return body;
+}
+
+// Format a dimension for the debossed label, in the current units.
+function fmtDim(value, units) {
+  if (units === "in") {
+    // Drop trailing zeros; up to 3 decimal places.
+    return parseFloat(value.toFixed(3)).toString();
+  }
+  return parseFloat(value.toFixed(2)).toString();
+}
+
+function debossLabelOnPocketFloor(body, d) {
+  if (d.displayWidth == null || d.displayLength == null) return body;
+  const units = d.displayUnits || "mm";
+  const label = `${fmtDim(d.displayWidth, units)} x ${fmtDim(d.displayLength, units)} ${units}`;
+
+  // Pick a font size that comfortably fits the pocket floor along its
+  // short axis. Cap at 6 mm so it's readable; floor at 2 mm for tiny
+  // joints.
+  const maxByWidth = Math.max(2.0, Math.min(6.0, d.INNER_W * 0.2));
+  const fontSize = maxByWidth;
+
+  let textDrawing;
+  try {
+    // replicad.drawText falls back to a built-in font if no fontFamily
+    // is given. fontFamily "monospace" hints toward an even-stroke
+    // family if available.
+    textDrawing = replicad.drawText(label, { fontSize, fontFamily: "monospace" });
+  } catch (e) {
+    console.warn("[deboss] drawText failed, skipping label:", e);
+    return body;
+  }
+
+  // Center the text bbox at (0, 0) so it sits on the pocket centroid.
+  let textShape;
+  try {
+    const bbox = textDrawing.boundingBox;
+    const cx = (bbox.minPoint?.x ?? bbox.xmin ?? 0 +
+                (bbox.maxPoint?.x ?? bbox.xmax ?? 0)) / 2;
+    const cy = (bbox.minPoint?.y ?? bbox.ymin ?? 0 +
+                (bbox.maxPoint?.y ?? bbox.ymax ?? 0)) / 2;
+    textShape = textDrawing
+      .sketchOnPlane("XY")
+      .extrude(-1.0)                // 1 mm deep deboss
+      .translate([-cx, -cy, BASE_DEPTH]);
+  } catch (e) {
+    console.warn("[deboss] sketch/extrude failed:", e);
+    return body;
+  }
+
+  try {
+    return body.cut(textShape);
+  } catch (e) {
+    console.warn("[deboss] cut failed:", e);
+    return body;
+  }
 }
 
 function buildRail(d) {
@@ -412,17 +490,48 @@ function fitCameraToScene() {
 // ── UI plumbing ─────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
+function toMm(value) {
+  return currentUnits === "in" ? value * INCH_MM : value;
+}
+
 function readParams() {
   const tenonRadiusRaw = $("tenonRadius").value.trim();
   return {
-    tenonWidth: parseFloat($("tenonWidth").value),
-    tenonLength: parseFloat($("tenonLength").value),
-    tenonRadius: tenonRadiusRaw === "" ? null : parseFloat(tenonRadiusRaw),
-    bit: parseFloat($("bit").value),
-    bearing: parseFloat($("bearing").value),
-    shrinkComp: parseFloat($("shrinkComp").value),
-    templateDepth: parseFloat($("templateDepth").value),
+    tenonWidth:  toMm(parseFloat($("tenonWidth").value)),
+    tenonLength: toMm(parseFloat($("tenonLength").value)),
+    tenonRadius: tenonRadiusRaw === "" ? null : toMm(parseFloat(tenonRadiusRaw)),
+    bit:         toMm(parseFloat($("bit").value)),
+    bearing:     toMm(parseFloat($("bearing").value)),
+    shrinkComp:  parseFloat($("shrinkComp").value),
+    templateDepth: toMm(parseFloat($("templateDepth").value)),
+    // Display values (in current units) for the debossed label.
+    displayWidth:  parseFloat($("tenonWidth").value),
+    displayLength: parseFloat($("tenonLength").value),
+    displayUnits:  currentUnits,
   };
+}
+
+function setUnits(newUnits) {
+  if (newUnits === currentUnits) return;
+  const factor = newUnits === "in" ? 1 / INCH_MM : INCH_MM;
+  for (const id of UNIT_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el || el.value === "") continue;
+    const v = parseFloat(el.value);
+    if (Number.isNaN(v)) continue;
+    const converted = v * factor;
+    el.value = newUnits === "in" ? converted.toFixed(3) : converted.toFixed(2);
+  }
+  // Update label suffixes.
+  document.querySelectorAll(".unit-label").forEach((s) => {
+    s.textContent = newUnits;
+  });
+  // Sensible step + placeholder tweaks per unit.
+  for (const id of UNIT_FIELDS) {
+    const el = document.getElementById(id);
+    if (el) el.step = newUnits === "in" ? "0.001" : "0.1";
+  }
+  currentUnits = newUnits;
 }
 
 function setStatus(msg, kind = "info") {
@@ -511,6 +620,12 @@ async function generateAll() {
   try {
     await bootKernel();
     setStatus("Ready. Adjust parameters and click Generate.", "ok");
+    // Wire unit radios.
+    document.querySelectorAll('input[name="units"]').forEach((r) => {
+      r.addEventListener("change", () => {
+        if (r.checked) setUnits(r.value);
+      });
+    });
     const btn = $("generate");
     btn.textContent = "Generate files";
     btn.disabled = false;
