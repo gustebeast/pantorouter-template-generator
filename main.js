@@ -787,18 +787,18 @@ function updateInstructions() {
   const dual = !!document.getElementById("dualRailMount")?.checked;
   const steps = dual
     ? [
-        "Print the body and two copies of the rail.",
-        "Apply super glue to each rail.",
-        "Slide one rail into each slot in the body.",
-        "Wait for the glue to cure.",
-        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate.",
+        "Print the body and two copies of the rail",
+        "Apply super glue to each rail",
+        "Slide one rail into each slot in the body",
+        "Wait for the glue to cure",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate",
       ]
     : [
-        "Print the body and the rail.",
-        "Apply super glue to the rail.",
-        "Slide the rail into the body.",
-        "Wait for the glue to cure.",
-        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate.",
+        "Print the body and the rail",
+        "Apply super glue to the rail",
+        "Slide the rail into the body",
+        "Wait for the glue to cure",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate",
       ];
   ol.innerHTML = "";
   for (const s of steps) {
