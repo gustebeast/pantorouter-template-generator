@@ -94,6 +94,23 @@
         </fieldset>
 
         <fieldset>
+          <legend>Tenon fit-tuning</legend>
+
+          <label class="toggle">
+            <input type="checkbox" id="outerTaper" />
+            Outer taper
+          </label>
+          <span class="hint">
+            Adds a 3 mm linear taper to the body's outer perimeter
+            (wider at the bottom, narrower at the top). Lets you
+            fine-tune tenon thickness by sliding the bearing along the
+            taper. The dimensions you entered above land 2/3 of the way
+            from the wide end to the narrow end, biasing most of the
+            adjustment range toward "make tenon bigger".
+          </span>
+        </fieldset>
+
+        <fieldset>
           <legend>Print calibration</legend>
 
           <label>
@@ -168,6 +185,6 @@
     </p>
   </footer>
 
-  <script type="module" src="main.js?v=35"></script>
+  <script type="module" src="main.js?v=36"></script>
 </body>
 </html>
