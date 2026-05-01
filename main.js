@@ -84,6 +84,23 @@ const PILOT_DIA = 2.369;
 const REFERENCE_H = 1.0;
 const CENTER_MARK_SIZE = 1.5;
 
+// Outer taper for tenon fit-tuning. When enabled, the body is built
+// as a loft from a slightly wider profile at z=0 (bottom) to a
+// slightly narrower one at z=totalH (top). The user-typed dimension
+// corresponds to the body's profile at TAPER_NOMINAL_FRACTION of the
+// way from the wide (bottom) end to the narrow (top) end — closer to
+// the narrow end, so most of the bearing-adjustment range is toward
+// "make tenon bigger" (matches the OEM template bias).
+const OUTER_TAPER_TOTAL = 3.0;          // bottom_W − top_W (mm)
+const TAPER_NOMINAL_FRACTION = 2 / 3;
+const TAPER_BOTTOM_DELTA = OUTER_TAPER_TOTAL * TAPER_NOMINAL_FRACTION;       // +2 mm
+const TAPER_TOP_DELTA    = -OUTER_TAPER_TOTAL * (1 - TAPER_NOMINAL_FRACTION); // −1 mm
+
+// Centering V-notch height — only the top NOTCH_H of the body has the
+// notch so the bearing (which rides lower on the outer face) doesn't
+// snag on it.
+const NOTCH_H = 2.0;
+
 // Joint fit-test pieces. Tiny mortise + tenon that exercise only the
 // dovetail/rail joint, without the full template body. Print these to
 // confirm the slot/rail clearance feels right before committing to a
@@ -104,6 +121,18 @@ async function bootKernel() {
       `https://cdn.jsdelivr.net/npm/replicad-opencascadejs@0.20.0/src/${path}`,
   });
   replicad.setOC(OC);
+  // Load a default font for replicad's drawText. Without this, the
+  // font registry is empty and drawText can't render anything — the
+  // pocket-floor deboss won't appear. JetBrains Mono is a CORS-friendly
+  // monospace TTF on jsdelivr.
+  try {
+    await replicad.loadFont(
+      "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/fonts/ttf/JetBrainsMono-Regular.ttf",
+      "default"
+    );
+  } catch (e) {
+    console.error("[font] failed to load deboss font:", e);
+  }
   kernelReady = true;
 }
 
@@ -114,6 +143,31 @@ function roundedRectPrism(width, length, radius, height, z0 = 0) {
     .drawRoundedRectangle(width, length, radius)
     .sketchOnPlane("XY", z0)
     .extrude(height);
+}
+
+// Lofted rounded-rect frustum. Used for the tapered outer body when
+// the "Outer taper" option is enabled. Bottom and top sketches share
+// the same corner radius — the loft produces a smooth linear inset
+// from bottom to top.
+function roundedRectFrustum(bottomW, bottomL, topW, topL, radius, height, z0 = 0) {
+  const bottomSketch = replicad
+    .drawRoundedRectangle(bottomW, bottomL, radius)
+    .sketchOnPlane("XY", z0);
+  const topSketch = replicad
+    .drawRoundedRectangle(topW, topL, radius)
+    .sketchOnPlane("XY", z0 + height);
+  return bottomSketch.loftWith(topSketch, { ruled: true });
+}
+
+function buildOuterBody(d, totalH) {
+  if (!d.outerTaper) {
+    return roundedRectPrism(d.OUTER_W, d.OUTER_L, d.OUTER_R, totalH, 0);
+  }
+  return roundedRectFrustum(
+    d.OUTER_W + TAPER_BOTTOM_DELTA, d.OUTER_L + TAPER_BOTTOM_DELTA,
+    d.OUTER_W + TAPER_TOP_DELTA,    d.OUTER_L + TAPER_TOP_DELTA,
+    d.OUTER_R, totalH, 0
+  );
 }
 
 function dovetailExtrude(pts, length, centerY) {
@@ -201,16 +255,17 @@ function pilotHoleWithReference(referenceDia, zBottom, zTop) {
 }
 
 function centeringVNotches(width, totalH) {
+  // Only the top NOTCH_H of the body has the notch — the bearing rides
+  // lower on the outer face and shouldn't snag on the centering mark.
   const side = CENTER_MARK_SIZE;
-  const height = totalH + 2.0;
-  const z0 = -1.0;
+  const z0 = totalH - NOTCH_H;
   const make = (sx) =>
     replicad
       .drawRectangle(side, side)
       .sketchOnPlane("XY", z0)
-      .extrude(height)
+      .extrude(NOTCH_H + 0.01)
       .translate([sx, 0, 0])
-      .rotate(45, [sx, 0, height / 2 + z0], [0, 0, 1]);
+      .rotate(45, [sx, 0, z0 + NOTCH_H / 2], [0, 0, 1]);
   return make(-width / 2).fuse(make(width / 2));
 }
 
@@ -256,6 +311,7 @@ function deriveSizes(p) {
     TEMPLATE_DEPTH: p.templateDepth,
     dualRailMount,
     dualRailFeasible,
+    outerTaper: !!p.outerTaper,
     // Pass display values through for the debossed label.
     displayWidth: p.displayWidth,
     displayLength: p.displayLength,
@@ -296,7 +352,7 @@ function slotXPositions(d) {
 function buildTemplate(d) {
   const totalH = BASE_DEPTH + d.TEMPLATE_DEPTH;
 
-  let body = roundedRectPrism(d.OUTER_W, d.OUTER_L, d.OUTER_R, totalH, 0);
+  let body = buildOuterBody(d, totalH);
 
   // Dovetail slot(s) — open at -Y end, capped at +Y end (STOP_LEN).
   // Single-rail mount cuts one slot at x=0; dual-rail mount cuts a
@@ -316,8 +372,10 @@ function buildTemplate(d) {
                      d.TEMPLATE_DEPTH + 1, BASE_DEPTH)
   );
 
-  // V-notches.
-  body = body.cut(centeringVNotches(d.OUTER_W, totalH));
+  // V-notches sit at the body's top face — track the actual top width
+  // so the notch is centered on the outer surface even with taper.
+  const notchW = d.outerTaper ? d.OUTER_W + TAPER_TOP_DELTA : d.OUTER_W;
+  body = body.cut(centeringVNotches(notchW, totalH));
 
   // Center pin pilot + reference at the pocket floor.
   body = body.cut(
@@ -366,41 +424,49 @@ function debossLabelOnPocketFloor(body, d) {
   // Pick a font size that comfortably fits the pocket floor along its
   // short axis. Cap at 6 mm so it's readable; floor at 2 mm for tiny
   // joints.
-  const maxByWidth = Math.max(2.0, Math.min(6.0, d.INNER_W * 0.2));
-  const fontSize = maxByWidth;
+  const fontSize = Math.max(2.0, Math.min(6.0, d.INNER_W * 0.2));
 
   let textDrawing;
   try {
-    // replicad.drawText falls back to a built-in font if no fontFamily
-    // is given. fontFamily "monospace" hints toward an even-stroke
-    // family if available.
-    textDrawing = replicad.drawText(label, { fontSize, fontFamily: "monospace" });
+    textDrawing = replicad.drawText(label, { fontSize });
   } catch (e) {
-    console.warn("[deboss] drawText failed, skipping label:", e);
+    console.error("[deboss] drawText threw:", e);
+    return body;
+  }
+  if (!textDrawing) {
+    console.error("[deboss] drawText returned no drawing — is the font loaded?");
     return body;
   }
 
-  // Center the text bbox at (0, 0) so it sits on the pocket centroid.
-  let textShape;
+  // Center the text on the pocket floor. boundingBox shape varies
+  // between replicad versions — accept whatever is exposed.
+  let cx = 0, cy = 0;
   try {
-    const bbox = textDrawing.boundingBox;
-    const cx = (bbox.minPoint?.x ?? bbox.xmin ?? 0 +
-                (bbox.maxPoint?.x ?? bbox.xmax ?? 0)) / 2;
-    const cy = (bbox.minPoint?.y ?? bbox.ymin ?? 0 +
-                (bbox.maxPoint?.y ?? bbox.ymax ?? 0)) / 2;
-    textShape = textDrawing
-      .sketchOnPlane("XY")
-      .extrude(-1.0)                // 1 mm deep deboss
-      .translate([-cx, -cy, BASE_DEPTH]);
+    const bb = textDrawing.boundingBox;
+    if (bb && Array.isArray(bb.bounds)) {
+      cx = (bb.bounds[0][0] + bb.bounds[1][0]) / 2;
+      cy = (bb.bounds[0][1] + bb.bounds[1][1]) / 2;
+    } else if (bb && bb.center) {
+      cx = bb.center[0] ?? bb.center.x ?? 0;
+      cy = bb.center[1] ?? bb.center.y ?? 0;
+    } else if (bb && bb.minPoint && bb.maxPoint) {
+      cx = (bb.minPoint.x + bb.maxPoint.x) / 2;
+      cy = (bb.minPoint.y + bb.maxPoint.y) / 2;
+    } else {
+      console.warn("[deboss] unrecognized bbox shape, leaving text uncentered:", bb);
+    }
   } catch (e) {
-    console.warn("[deboss] sketch/extrude failed:", e);
-    return body;
+    console.error("[deboss] bbox extraction failed:", e);
   }
 
   try {
+    const textShape = textDrawing
+      .sketchOnPlane("XY", BASE_DEPTH)
+      .extrude(-0.5)                // 0.5 mm deep deboss into pocket floor
+      .translate([-cx, -cy, 0]);
     return body.cut(textShape);
   } catch (e) {
-    console.warn("[deboss] cut failed:", e);
+    console.error("[deboss] sketch/extrude/cut failed:", e);
     return body;
   }
 }
@@ -734,6 +800,7 @@ function readParams() {
     // Mounting mode (only honored if the geometry actually allows it
     // — see deriveSizes).
     dualRailMount: $("dualRailMount").checked,
+    outerTaper: $("outerTaper").checked,
     // Display values (in current units) for the debossed label.
     displayWidth:  parseFloat($("tenonWidth").value),
     displayLength: parseFloat($("tenonLength").value),
