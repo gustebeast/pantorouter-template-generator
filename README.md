@@ -41,9 +41,10 @@ once-per-browser), nothing leaves your machine.
 
 ## Assembly
 
-1. Print the body and the rail.
-2. Apply super glue to the rail.
-3. Slide the rail into the body.
+1. Print the body and the rail. **Dual rail mount:** print the rail
+   twice — the body has two parallel slots and needs one rail in each.
+2. Apply super glue to the rail (each rail, for dual rail mount).
+3. Slide the rail into the body (one rail per slot for dual rail mount).
 4. Wait for the glue to cure.
 5. Use 4 mm and 6 mm drill bits to widen the pilot holes in the base
    plate (the pocket floor's reference counterbores indicate which is
