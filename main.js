@@ -277,16 +277,33 @@ function screwPositions(d) {
   return [[0, -sy], [0, sy]];
 }
 
+// X positions of the dovetail slots in the body. Single-rail has one
+// slot at x=0; dual-rail has two slots at ±T_TRACK_SPACING (each
+// engages its own outer T-track via its own copy of the rail piece).
+// The user prints the rail file twice for dual-rail mode.
+function slotXPositions(d) {
+  return d.dualRailMount
+    ? [-T_TRACK_SPACING, +T_TRACK_SPACING]
+    : [0];
+}
+
 // ── Builders ────────────────────────────────────────────────────────────────
 function buildTemplate(d) {
   const totalH = BASE_DEPTH + d.TEMPLATE_DEPTH;
 
   let body = roundedRectPrism(d.OUTER_W, d.OUTER_L, d.OUTER_R, totalH, 0);
 
-  // Dovetail slot — open at -Y end, capped at +Y end (STOP_LEN).
+  // Dovetail slot(s) — open at -Y end, capped at +Y end (STOP_LEN).
+  // Single-rail mount cuts one slot at x=0; dual-rail mount cuts a
+  // slot at each ±T_TRACK_SPACING so two rail copies can engage the
+  // pantorouter's two outer T-tracks.
   const slotLength = d.OUTER_L - STOP_LEN + 2.0;
   const slotCenterY = -STOP_LEN / 2 - 1.0;
-  body = body.cut(slotDovetailSolid(slotLength, slotCenterY));
+  for (const sx of slotXPositions(d)) {
+    body = body.cut(
+      slotDovetailSolid(slotLength, slotCenterY).translate([sx, 0, 0])
+    );
+  }
 
   // Mortise pocket.
   body = body.cut(
@@ -417,7 +434,12 @@ function buildRail(d) {
 // separately and slide them together. Useful for previewing the joint
 // geometry in a single STEP/STL file.
 function buildAssembly(d) {
-  return buildTemplate(d).fuse(buildRail(d));
+  let asm = buildTemplate(d);
+  const rail = buildRail(d);
+  for (const sx of slotXPositions(d)) {
+    asm = asm.fuse(rail.translate([sx, 0, 0]));
+  }
+  return asm;
 }
 
 // Small mock-up for verifying that the M4 mounting workflow actually
@@ -433,26 +455,29 @@ function buildScrewTest(d) {
   const [screwX, screwY] = screwPositions(d)[0];
   const FOOTPRINT = 10.0;
 
-  // Body without side pilots (we'll cut the 4 mm drilled hole below).
+  // Body without side pilots (we'll cut the drilled hole below).
   let body = roundedRectPrism(d.OUTER_W, d.OUTER_L, d.OUTER_R, totalH, 0);
-  body = body.cut(
-    slotDovetailSolid(d.OUTER_L - STOP_LEN + 2.0, -STOP_LEN / 2 - 1.0)
-  );
+  for (const sx of slotXPositions(d)) {
+    body = body.cut(
+      slotDovetailSolid(d.OUTER_L - STOP_LEN + 2.0, -STOP_LEN / 2 - 1.0)
+        .translate([sx, 0, 0])
+    );
+  }
   body = body.cut(
     roundedRectPrism(d.INNER_W, d.INNER_L, d.INNER_R,
                      d.TEMPLATE_DEPTH + 1, BASE_DEPTH)
   );
   body = body.cut(centeringVNotches(d.OUTER_W, totalH));
 
-  // Rail at full slot dimensions (zero clearance) + base bar. The
-  // dovetail upper portion uses slotDovetailSolid (matches the slot
-  // exactly), so when fused with the body the parts merge into one
-  // continuous solid with no air gap.
-  const railUpper = slotDovetailSolid(d.OUTER_L - STOP_LEN, -STOP_LEN / 2);
-  const railBase  = railBaseSolid(d.OUTER_L, 0);
-  const rail = railUpper.fuse(railBase);
-
-  let assembled = body.fuse(rail);
+  // Rails at full slot dimensions (zero clearance) + bases — one per
+  // slot. With dual-rail mode there are two; with single-rail one.
+  let assembled = body;
+  for (const sx of slotXPositions(d)) {
+    const railUpper = slotDovetailSolid(d.OUTER_L - STOP_LEN, -STOP_LEN / 2)
+      .translate([sx, 0, 0]);
+    const railBase = railBaseSolid(d.OUTER_L, 0).translate([sx, 0, 0]);
+    assembled = assembled.fuse(railUpper).fuse(railBase);
+  }
 
   // Drilled-through screw clearance hole — over-drilled by 1 mm vs the
   // nominal SCREW_DIAMETER to simulate a real-world drill that wandered
@@ -830,9 +855,18 @@ async function generateAll() {
       const shape = build();
       const blob = format === "stl" ? await shape.blobSTL() : await shape.blobSTEP();
       addDownload(filename, blob);
-      // The assembled piece is identical (visually) to body+rail
-      // already rendered — don't add it twice to the 3D preview.
-      if (color !== null) addShapeToPreview(shape, color, partKey);
+      if (color === null) continue;
+      // The downloaded rail file has just one rail piece. In dual-rail
+      // mode the user prints it twice and slots one into each slot,
+      // so the preview reflects that by rendering a copy at each slot
+      // position.
+      if (partKey === "rail") {
+        for (const sx of slotXPositions(d)) {
+          addShapeToPreview(shape.translate([sx, 0, 0]), color, partKey);
+        }
+      } else {
+        addShapeToPreview(shape, color, partKey);
+      }
     }
     fitCameraToScene();
     document.getElementById("preview-overlay")?.classList.add("hidden");
