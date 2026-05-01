@@ -269,7 +269,7 @@ function centeringVNotches(width, totalH) {
       .drawRectangle(side, side)
       .sketchOnPlane("XY", z0)
       .extrude(NOTCH_H + 0.01, {
-        extrusionProfile: { profile: "linear", endFactor: 0 },
+        extrusionProfile: { profile: "linear", endFactor: 0.01 },
       })
       .translate([sx, 0, 0])
       .rotate(45, [sx, 0, z0 + NOTCH_H / 2], [0, 0, 1]);
