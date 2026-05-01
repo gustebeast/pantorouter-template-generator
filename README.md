@@ -41,8 +41,8 @@ once-per-browser), nothing leaves your machine.
 
 ## Assembly
 
-1. Print the body and the rail. **Dual rail mount:** print the rail
-   twice — the body has two parallel slots and needs one rail in each.
+1. Print the body and the rail. **Dual rail mount:** print two copies
+   of the rail — one for each slot in the body.
 2. Apply super glue to the rail (each rail, for dual rail mount).
 3. Slide the rail into the body (one rail per slot for dual rail mount).
 4. Wait for the glue to cure.

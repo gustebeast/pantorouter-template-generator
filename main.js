@@ -787,7 +787,7 @@ function updateInstructions() {
   const dual = !!document.getElementById("dualRailMount")?.checked;
   const steps = dual
     ? [
-        "Print the body and the rail. Print the rail twice — the body has two parallel slots and needs one rail in each.",
+        "Print the body and two copies of the rail.",
         "Apply super glue to each rail.",
         "Slide one rail into each slot in the body.",
         "Wait for the glue to cure.",
