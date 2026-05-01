@@ -408,10 +408,9 @@ function buildTemplate(d) {
     body = body.cut(countersinkCone(BASE_DEPTH).translate([sx, sy, 0]));
   }
 
-  // Debossed joint-size label on the pocket floor (visible from above
-  // when looking into the empty pocket). Uses a monospace font for
-  // near-uniform stroke width.
-  body = debossLabelOnPocketFloor(body, d);
+  // Embossed joint-size label on the top rim, running along the long
+  // axis. Uses a monospace font for near-uniform stroke width.
+  body = embossLabelOnTopRim(body, d);
 
   return body;
 }
@@ -425,33 +424,29 @@ function fmtDim(value, units) {
   return parseFloat(value.toFixed(2)).toString();
 }
 
-function debossLabelOnPocketFloor(body, d) {
+function embossLabelOnTopRim(body, d) {
   if (d.displayWidth == null || d.displayLength == null) return body;
   const units = d.displayUnits || "mm";
   const label = `${fmtDim(d.displayWidth, units)} x ${fmtDim(d.displayLength, units)} ${units}`;
-  const fontSize = Math.max(3.0, Math.min(8.0, d.INNER_W * 0.25));
 
-  console.log("[deboss] starting:", { label, fontSize, BASE_DEPTH, INNER_W: d.INNER_W });
+  // Sized to fit the rim strip alongside the pocket opening on the
+  // top face. Cap at 6 mm so it stays readable; floor at 2 mm.
+  const topW = d.outerTaper ? d.OUTER_W + TAPER_TOP_DELTA : d.OUTER_W;
+  const rimWidth = (topW - d.INNER_W) / 2;
+  const fontSize = Math.max(2.0, Math.min(6.0, rimWidth * 0.5));
 
   let textDrawing;
   try {
     textDrawing = replicad.drawText(label, { fontSize });
   } catch (e) {
-    console.error("[deboss] drawText threw — is the font loaded?", e);
+    console.error("[label] drawText threw — is the font loaded?", e);
     return body;
   }
-  if (!textDrawing) {
-    console.error("[deboss] drawText returned null/undefined");
-    return body;
-  }
-  console.log("[deboss] drawText returned:", textDrawing);
+  if (!textDrawing) return body;
 
-  // Center the text on the pocket floor. boundingBox shape varies
-  // between replicad versions — accept whatever is exposed.
   let cx = 0, cy = 0;
   try {
     const bb = textDrawing.boundingBox;
-    console.log("[deboss] bbox:", bb);
     if (bb && Array.isArray(bb.bounds)) {
       cx = (bb.bounds[0][0] + bb.bounds[1][0]) / 2;
       cy = (bb.bounds[0][1] + bb.bounds[1][1]) / 2;
@@ -461,26 +456,26 @@ function debossLabelOnPocketFloor(body, d) {
     } else if (bb && bb.minPoint && bb.maxPoint) {
       cx = (bb.minPoint.x + bb.maxPoint.x) / 2;
       cy = (bb.minPoint.y + bb.maxPoint.y) / 2;
-    } else {
-      console.warn("[deboss] unrecognized bbox shape, leaving text uncentered");
     }
-    console.log("[deboss] center offset:", cx, cy);
   } catch (e) {
-    console.error("[deboss] bbox extraction failed:", e);
+    console.error("[label] bbox extraction failed:", e);
   }
 
+  const totalH = BASE_DEPTH + d.TEMPLATE_DEPTH;
+  // Center of the +X rim strip (between the pocket wall and the body's
+  // outer wall on the +X side of the top face).
+  const rimCenterX = (d.INNER_W + topW) / 4;
+
   try {
-    const sketch = textDrawing.sketchOnPlane("XY", BASE_DEPTH);
-    console.log("[deboss] sketch ok:", sketch);
-    const textShape = sketch
-      .extrude(-1.0)                // 1 mm deep deboss into pocket floor
-      .translate([-cx, -cy, 0]);
-    console.log("[deboss] textShape ok, cutting…");
-    const result = body.cut(textShape);
-    console.log("[deboss] cut ok");
-    return result;
+    const textShape = textDrawing
+      .sketchOnPlane("XY", totalH)
+      .extrude(1.0)                              // embossed +1 mm above top face
+      .translate([-cx, -cy, 0])                  // center bbox at origin
+      .rotate(90, [0, 0, 0], [0, 0, 1])          // run text along Y (long axis)
+      .translate([rimCenterX, 0, 0]);            // shift onto rim strip
+    return body.fuse(textShape);
   } catch (e) {
-    console.error("[deboss] sketch/extrude/cut failed:", e);
+    console.error("[label] sketch/extrude/fuse failed:", e);
     return body;
   }
 }
