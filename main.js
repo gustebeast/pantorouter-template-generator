@@ -258,13 +258,19 @@ function centeringVNotches(width, totalH) {
   // Notch lives on the back of the template (z=0 face — the side that
   // mounts to the pantorouter holder). The front face is where the
   // bearing rides, so keep that face clear.
+  //
+  // Built as a pyramid (square base, tapered to a point at the apex)
+  // so the cut on the outer wall reads as a triangle pointing inward
+  // at the centerline rather than a flat-topped trapezoid.
   const side = CENTER_MARK_SIZE;
   const z0 = -0.01;
   const make = (sx) =>
     replicad
       .drawRectangle(side, side)
       .sketchOnPlane("XY", z0)
-      .extrude(NOTCH_H + 0.01)
+      .extrude(NOTCH_H + 0.01, {
+        extrusionProfile: { profile: "linear", endFactor: 0 },
+      })
       .translate([sx, 0, 0])
       .rotate(45, [sx, 0, z0 + NOTCH_H / 2], [0, 0, 1]);
   return make(-width / 2).fuse(make(width / 2));
