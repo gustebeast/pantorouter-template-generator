@@ -126,10 +126,11 @@ async function bootKernel() {
   // pocket-floor deboss won't appear. JetBrains Mono is a CORS-friendly
   // monospace TTF on jsdelivr.
   try {
-    await replicad.loadFont(
+    const font = await replicad.loadFont(
       "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/fonts/ttf/JetBrainsMono-Regular.ttf",
       "default"
     );
+    console.log("[font] loaded:", font);
   } catch (e) {
     console.error("[font] failed to load deboss font:", e);
   }
@@ -428,29 +429,29 @@ function debossLabelOnPocketFloor(body, d) {
   if (d.displayWidth == null || d.displayLength == null) return body;
   const units = d.displayUnits || "mm";
   const label = `${fmtDim(d.displayWidth, units)} x ${fmtDim(d.displayLength, units)} ${units}`;
+  const fontSize = Math.max(3.0, Math.min(8.0, d.INNER_W * 0.25));
 
-  // Pick a font size that comfortably fits the pocket floor along its
-  // short axis. Cap at 6 mm so it's readable; floor at 2 mm for tiny
-  // joints.
-  const fontSize = Math.max(2.0, Math.min(6.0, d.INNER_W * 0.2));
+  console.log("[deboss] starting:", { label, fontSize, BASE_DEPTH, INNER_W: d.INNER_W });
 
   let textDrawing;
   try {
     textDrawing = replicad.drawText(label, { fontSize });
   } catch (e) {
-    console.error("[deboss] drawText threw:", e);
+    console.error("[deboss] drawText threw — is the font loaded?", e);
     return body;
   }
   if (!textDrawing) {
-    console.error("[deboss] drawText returned no drawing — is the font loaded?");
+    console.error("[deboss] drawText returned null/undefined");
     return body;
   }
+  console.log("[deboss] drawText returned:", textDrawing);
 
   // Center the text on the pocket floor. boundingBox shape varies
   // between replicad versions — accept whatever is exposed.
   let cx = 0, cy = 0;
   try {
     const bb = textDrawing.boundingBox;
+    console.log("[deboss] bbox:", bb);
     if (bb && Array.isArray(bb.bounds)) {
       cx = (bb.bounds[0][0] + bb.bounds[1][0]) / 2;
       cy = (bb.bounds[0][1] + bb.bounds[1][1]) / 2;
@@ -461,18 +462,23 @@ function debossLabelOnPocketFloor(body, d) {
       cx = (bb.minPoint.x + bb.maxPoint.x) / 2;
       cy = (bb.minPoint.y + bb.maxPoint.y) / 2;
     } else {
-      console.warn("[deboss] unrecognized bbox shape, leaving text uncentered:", bb);
+      console.warn("[deboss] unrecognized bbox shape, leaving text uncentered");
     }
+    console.log("[deboss] center offset:", cx, cy);
   } catch (e) {
     console.error("[deboss] bbox extraction failed:", e);
   }
 
   try {
-    const textShape = textDrawing
-      .sketchOnPlane("XY", BASE_DEPTH)
-      .extrude(-0.5)                // 0.5 mm deep deboss into pocket floor
+    const sketch = textDrawing.sketchOnPlane("XY", BASE_DEPTH);
+    console.log("[deboss] sketch ok:", sketch);
+    const textShape = sketch
+      .extrude(-1.0)                // 1 mm deep deboss into pocket floor
       .translate([-cx, -cy, 0]);
-    return body.cut(textShape);
+    console.log("[deboss] textShape ok, cutting…");
+    const result = body.cut(textShape);
+    console.log("[deboss] cut ok");
+    return result;
   } catch (e) {
     console.error("[deboss] sketch/extrude/cut failed:", e);
     return body;
