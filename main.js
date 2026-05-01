@@ -255,10 +255,11 @@ function pilotHoleWithReference(referenceDia, zBottom, zTop) {
 }
 
 function centeringVNotches(width, totalH) {
-  // Only the top NOTCH_H of the body has the notch — the bearing rides
-  // lower on the outer face and shouldn't snag on the centering mark.
+  // Notch lives on the back of the template (z=0 face — the side that
+  // mounts to the pantorouter holder). The front face is where the
+  // bearing rides, so keep that face clear.
   const side = CENTER_MARK_SIZE;
-  const z0 = totalH - NOTCH_H;
+  const z0 = -0.01;
   const make = (sx) =>
     replicad
       .drawRectangle(side, side)
@@ -372,9 +373,10 @@ function buildTemplate(d) {
                      d.TEMPLATE_DEPTH + 1, BASE_DEPTH)
   );
 
-  // V-notches sit at the body's top face — track the actual top width
-  // so the notch is centered on the outer surface even with taper.
-  const notchW = d.outerTaper ? d.OUTER_W + TAPER_TOP_DELTA : d.OUTER_W;
+  // V-notches sit at the body's back face (z=0) — track the actual
+  // bottom width so the notch is centered on the outer surface even
+  // with taper.
+  const notchW = d.outerTaper ? d.OUTER_W + TAPER_BOTTOM_DELTA : d.OUTER_W;
   body = body.cut(centeringVNotches(notchW, totalH));
 
   // Center pin pilot + reference at the pocket floor.
