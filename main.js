@@ -56,6 +56,20 @@ const COUNTERSINK_BOTTOM_DIA = 4.0;    // diameter where the cone ends (= M4 sha
 const COUNTERSINK_DEPTH      = 3.383;  // vertical depth of the cone
 const COUNTERSINK_FLOOR_THICK = 0.4;   // solid material below cone, above slot
 
+// Pantorouter T-track geometry — three parallel T-tracks 20 mm apart.
+// In "dual rail mount" mode the side screws shift from along the long
+// axis to perpendicular to it, so the center hole engages the middle
+// T-track and the side screws engage the outer two.
+const T_TRACK_SPACING = 20.0;
+// Minimum gap between the cone bezel's outer edge and the body's outer
+// wall when in dual-rail mode — keeps the wall from being too thin.
+const COUNTERSINK_EDGE_BUFFER = 1.0;
+// Min short-axis width the template needs for dual-rail mounting:
+// 2 × spacing for the side-screw positions + the cone diameter + buffer
+// on each side.
+const DUAL_RAIL_MIN_OUTER_W =
+  2 * T_TRACK_SPACING + COUNTERSINK_TOP_DIA + 2 * COUNTERSINK_EDGE_BUFFER;
+
 const BASE_DEPTH = SLOT_DEPTH + COUNTERSINK_FLOOR_THICK + COUNTERSINK_DEPTH;
 
 const STOP_LEN = 8.0;
@@ -225,9 +239,18 @@ function deriveSizes(p) {
       "Inner corner radius collapsed — tenon corner radius is smaller than bit radius."
     );
 
+  // Dual-rail mount is only applied if the template's short axis can
+  // actually fit the side cones with the required edge buffer. Even
+  // if the user has the box checked, we silently disable it for parts
+  // that are too narrow.
+  const dualRailFeasible = OUTER_W >= DUAL_RAIL_MIN_OUTER_W;
+  const dualRailMount = !!p.dualRailMount && dualRailFeasible;
+
   return {
     OUTER_W, OUTER_L, OUTER_R, INNER_W, INNER_L, INNER_R,
     TEMPLATE_DEPTH: p.templateDepth,
+    dualRailMount,
+    dualRailFeasible,
     // Pass display values through for the debossed label.
     displayWidth: p.displayWidth,
     displayLength: p.displayLength,
@@ -235,8 +258,23 @@ function deriveSizes(p) {
   };
 }
 
-function screwYPosition(d) {
-  return d.INNER_L / 4;
+// Returns [[x, y], [x, y]] for the two side screw positions, in mm.
+//
+//  • Single-rail mount (default): along the long axis, half-way between
+//    the center pin and the inner-pocket wall. Both screws engage the
+//    same T-track as the rail.
+//  • Dual-rail mount: perpendicular to the long axis, ±T_TRACK_SPACING
+//    from center, so the screws engage the OUTER two T-tracks and the
+//    center hole engages the center T-track.
+function screwPositions(d) {
+  if (d.dualRailMount) {
+    return [
+      [-T_TRACK_SPACING, 0],
+      [ T_TRACK_SPACING, 0],
+    ];
+  }
+  const sy = d.INNER_L / 4;
+  return [[0, -sy], [0, sy]];
 }
 
 // ── Builders ────────────────────────────────────────────────────────────────
@@ -271,15 +309,14 @@ function buildTemplate(d) {
   //     drops in flush with the pocket floor. The cone tapers from
   //     COUNTERSINK_TOP_DIA at the floor down to COUNTERSINK_BOTTOM_DIA
   //     at COUNTERSINK_DEPTH below it.
-  const sy = screwYPosition(d);
-  for (const yy of [-sy, +sy]) {
+  for (const [sx, sy] of screwPositions(d)) {
     const pilot = replicad
       .drawCircle(PILOT_DIA / 2)
       .sketchOnPlane("XY", -1.0)
       .extrude(BASE_DEPTH + 1.0)
-      .translate([0, yy, 0]);
+      .translate([sx, sy, 0]);
     body = body.cut(pilot);
-    body = body.cut(countersinkCone(BASE_DEPTH).translate([0, yy, 0]));
+    body = body.cut(countersinkCone(BASE_DEPTH).translate([sx, sy, 0]));
   }
 
   // Debossed joint-size label on the pocket floor (visible from above
@@ -358,14 +395,18 @@ function buildRail(d) {
   rail = rail.cut(
     replicad.drawCircle(PILOT_DIA / 2).sketchOnPlane("XY", pilotZ0).extrude(pilotH)
   );
-  const sy = screwYPosition(d);
-  for (const yy of [-sy, +sy]) {
+  // Side-screw pilots — only cut the ones that actually pass through
+  // the rail (with dual-rail mount the side screws are off the long
+  // axis at ±20 mm, well outside the rail's footprint, so we skip them
+  // there).
+  for (const [sx, sy] of screwPositions(d)) {
+    if (Math.abs(sx) > RAIL_CATCH_W / 2) continue;
     rail = rail.cut(
       replicad
         .drawCircle(PILOT_DIA / 2)
         .sketchOnPlane("XY", pilotZ0)
         .extrude(pilotH)
-        .translate([0, yy, 0])
+        .translate([sx, sy, 0])
     );
   }
   return rail;
@@ -389,7 +430,7 @@ function buildAssembly(d) {
 // before committing to the full template print.
 function buildScrewTest(d) {
   const totalH = BASE_DEPTH + d.TEMPLATE_DEPTH;
-  const sy = screwYPosition(d);
+  const [screwX, screwY] = screwPositions(d)[0];
   const FOOTPRINT = 10.0;
 
   // Body without side pilots (we'll cut the 4 mm drilled hole below).
@@ -420,9 +461,11 @@ function buildScrewTest(d) {
     .drawCircle(SCREW_DIAMETER / 2)
     .sketchOnPlane("XY", zBot)
     .extrude(fullH)
-    .translate([0, sy, 0]);
+    .translate([screwX, screwY, 0]);
   assembled = assembled.cut(drilled);
-  assembled = assembled.cut(countersinkCone(BASE_DEPTH).translate([0, sy, 0]));
+  assembled = assembled.cut(
+    countersinkCone(BASE_DEPTH).translate([screwX, screwY, 0])
+  );
 
   // Slice out the FOOTPRINT × FOOTPRINT × full-height column centered
   // on the screw hole.
@@ -430,7 +473,7 @@ function buildScrewTest(d) {
     .drawRectangle(FOOTPRINT, FOOTPRINT)
     .sketchOnPlane("XY", zBot)
     .extrude(fullH)
-    .translate([0, sy, 0]);
+    .translate([screwX, screwY, 0]);
 
   const piece = assembled.intersect(slicer);
 
@@ -444,7 +487,7 @@ function buildScrewTest(d) {
   // here, just the screw/T-track interface.
   return piece
     .rotate(180, [0, 0, 0], [0, 1, 0])
-    .translate([0, -sy, BASE_DEPTH]);
+    .translate([-screwX, -screwY, BASE_DEPTH]);
 }
 
 // Small rectangular block with the dovetail slot — for fit-checking
@@ -652,11 +695,47 @@ function readParams() {
     bearing:     toMm(parseFloat($("bearing").value)),
     shrinkComp:  parseFloat($("shrinkComp").value),
     templateDepth: toMm(parseFloat($("templateDepth").value)),
+    // Mounting mode (only honored if the geometry actually allows it
+    // — see deriveSizes).
+    dualRailMount: $("dualRailMount").checked,
     // Display values (in current units) for the debossed label.
     displayWidth:  parseFloat($("tenonWidth").value),
     displayLength: parseFloat($("tenonLength").value),
     displayUnits:  currentUnits,
   };
+}
+
+// Re-evaluate whether the dual-rail-mount checkbox should be enabled
+// based on the current parameter values, and update its status text.
+// Called on boot and after every input change.
+function updateDualRailFeasibility() {
+  const cb = document.getElementById("dualRailMount");
+  const status = document.getElementById("dualRailStatus");
+  if (!cb || !status) return;
+  let outerW;
+  try {
+    const p = readParams();
+    if ([p.tenonWidth, p.tenonLength, p.bit, p.bearing].some(Number.isNaN)) {
+      return;
+    }
+    outerW = (p.tenonWidth + p.bit) * 2 - p.bearing;
+  } catch {
+    return;
+  }
+  const feasible = outerW >= DUAL_RAIL_MIN_OUTER_W;
+  cb.disabled = !feasible;
+  if (!feasible) {
+    cb.checked = false;
+    status.textContent =
+      `Disabled — short axis is ${outerW.toFixed(1)} mm; needs ` +
+      `≥ ${DUAL_RAIL_MIN_OUTER_W.toFixed(1)} mm to fit the cone bezels ` +
+      `with ${COUNTERSINK_EDGE_BUFFER} mm edge clearance.`;
+    status.style.color = "var(--muted)";
+  } else {
+    status.textContent =
+      `Available — short axis is ${outerW.toFixed(1)} mm.`;
+    status.style.color = "";
+  }
 }
 
 function setUnits(newUnits) {
@@ -780,8 +859,17 @@ async function generateAll() {
     document.querySelectorAll('input[name="units"]').forEach((r) => {
       r.addEventListener("change", () => {
         if (r.checked) setUnits(r.value);
+        updateDualRailFeasibility();
       });
     });
+    // Recompute dual-rail availability whenever any parameter changes.
+    document
+      .querySelectorAll("#params input, #params select")
+      .forEach((el) => {
+        el.addEventListener("input", updateDualRailFeasibility);
+        el.addEventListener("change", updateDualRailFeasibility);
+      });
+    updateDualRailFeasibility();
     const btn = $("generate");
     btn.textContent = "Generate files";
     btn.disabled = false;

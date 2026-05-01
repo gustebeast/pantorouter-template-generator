@@ -73,6 +73,23 @@
         </fieldset>
 
         <fieldset>
+          <legend>Mounting</legend>
+
+          <label class="toggle">
+            <input type="checkbox" id="dualRailMount" disabled />
+            Dual rail mount
+          </label>
+          <span class="hint">
+            Spread the side screws perpendicular to the long axis so the
+            template engages all three of the pantorouter's T-tracks (20 mm
+            apart) instead of just one. Adds stability for tall narrow
+            templates. Only available when the short-axis width is wide
+            enough to fit the side countersinks with edge clearance.
+          </span>
+          <span class="hint" id="dualRailStatus"></span>
+        </fieldset>
+
+        <fieldset>
           <legend>Print calibration</legend>
 
           <label>
@@ -153,6 +170,6 @@
     </p>
   </footer>
 
-  <script type="module" src="main.js?v=24"></script>
+  <script type="module" src="main.js?v=25"></script>
 </body>
 </html>
