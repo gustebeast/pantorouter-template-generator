@@ -763,8 +763,10 @@ function updateDualRailFeasibility() {
   const feasibleL = innerL >= DUAL_RAIL_MIN_INNER_L;
   const feasible = feasibleW && feasibleL && innerW > 0 && innerL > 0;
   cb.disabled = !feasible;
+  const wasChecked = cb.checked;
   if (!feasible) {
     cb.checked = false;
+    if (wasChecked) updateInstructions();
     const limiter = !feasibleW
       ? `pocket short axis is ${innerW.toFixed(1)} mm; needs ≥ ${DUAL_RAIL_MIN_INNER_W.toFixed(1)} mm`
       : `pocket long axis is ${innerL.toFixed(1)} mm; needs ≥ ${DUAL_RAIL_MIN_INNER_L.toFixed(1)} mm`;
@@ -776,6 +778,33 @@ function updateDualRailFeasibility() {
     status.textContent =
       `Available — pocket floor is ${innerW.toFixed(1)} × ${innerL.toFixed(1)} mm.`;
     status.style.color = "";
+  }
+}
+
+function updateInstructions() {
+  const ol = document.getElementById("instructions");
+  if (!ol) return;
+  const dual = !!document.getElementById("dualRailMount")?.checked;
+  const steps = dual
+    ? [
+        "Print the body and the rail. Print the rail twice — the body has two parallel slots and needs one rail in each.",
+        "Apply super glue to each rail.",
+        "Slide one rail into each slot in the body.",
+        "Wait for the glue to cure.",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate.",
+      ]
+    : [
+        "Print the body and the rail.",
+        "Apply super glue to the rail.",
+        "Slide the rail into the body.",
+        "Wait for the glue to cure.",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate.",
+      ];
+  ol.innerHTML = "";
+  for (const s of steps) {
+    const li = document.createElement("li");
+    li.textContent = s;
+    ol.appendChild(li);
   }
 }
 
@@ -936,6 +965,10 @@ async function generateAll() {
         el.addEventListener("change", updateDualRailFeasibility);
       });
     updateDualRailFeasibility();
+    updateInstructions();
+    document
+      .getElementById("dualRailMount")
+      ?.addEventListener("change", updateInstructions);
     const btn = $("generate");
     btn.textContent = "Generate files";
     btn.disabled = false;
