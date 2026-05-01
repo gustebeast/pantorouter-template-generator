@@ -66,6 +66,16 @@ const PILOT_DIA = 2.369;
 const REFERENCE_H = 1.0;
 const CENTER_MARK_SIZE = 1.5;
 
+// Joint fit-test pieces. Tiny mortise + tenon that exercise only the
+// dovetail/rail joint, without the full template body. Print these to
+// confirm the slot/rail clearance feels right before committing to a
+// full-size template print.
+const TEST_LENGTH   = 20.0;  // total length of each test piece, along Y
+const TEST_STOP_LEN = 10.0;  // closed-cap region at +Y; remaining 10 mm is slide
+const TEST_WALL_T   = 1.2;   // min wall thickness around the slot in the
+                             // test mortise (measured at the slot's widest
+                             // point — the catch).
+
 // ── Kernel boot ─────────────────────────────────────────────────────────────
 let kernelReady = false;
 
@@ -425,6 +435,30 @@ function buildScrewTest(d) {
   return assembled.intersect(slicer);
 }
 
+// Small rectangular block with the dovetail slot — for fit-checking
+// the rail/slot clearance before printing the full template.
+function buildMortiseTest() {
+  const outerW = RAIL_CATCH_W + 2 * TEST_WALL_T;
+  const outerH = BASE_DEPTH;
+  let block = replicad
+    .drawRectangle(outerW, TEST_LENGTH)
+    .sketchOnPlane("XY", 0)
+    .extrude(outerH);
+  const slotLength = TEST_LENGTH - TEST_STOP_LEN + 2.0;
+  const slotCenterY = -TEST_STOP_LEN / 2 - 1.0;
+  return block.cut(slotDovetailSolid(slotLength, slotCenterY));
+}
+
+// Matching small rail piece for the mortise test. Same dovetail and
+// base profile as the full rail; just shorter and without holes.
+function buildTenonTest() {
+  const base = railBaseSolid(TEST_LENGTH, 0);
+  const dtLen = TEST_LENGTH - TEST_STOP_LEN - RAIL_CLEARANCE;
+  const dtCenterY = -TEST_STOP_LEN / 2 - RAIL_CLEARANCE / 2;
+  const dt = railDovetailSolid(dtLen, dtCenterY);
+  return base.fuse(dt);
+}
+
 // ── 3D preview (three.js) ───────────────────────────────────────────────────
 let scene, camera, renderer, controls;
 // Three.js objects keyed by part name ("body" / "rail") so each can be
@@ -683,13 +717,14 @@ async function generateAll() {
     const format = $("format").value === "stl" ? "stl" : "step";
 
     const parts = [
-      ["body",      "pantorouter-template-body",       () => buildTemplate(d),  0xb0b0b0],
-      ["rail",      "pantorouter-template-rail",       () => buildRail(d),      0xd9882a],
-      // Assembled / screw-test are visual / fit-verification only.
-      // Skipped for the preview render (already rendered as separate
-      // body+rail meshes there).
-      ["assembled",  "pantorouter-template-assembled",  () => buildAssembly(d),  null],
-      ["screwTest",  "pantorouter-template-screw-test", () => buildScrewTest(d), null],
+      ["body",      "pantorouter-template-body",         () => buildTemplate(d),    0xb0b0b0],
+      ["rail",      "pantorouter-template-rail",         () => buildRail(d),        0xd9882a],
+      // Verification / fit-test pieces. Skipped for the preview render
+      // (already rendered as separate body+rail meshes there).
+      ["assembled",   "pantorouter-template-assembled",    () => buildAssembly(d),    null],
+      ["screwTest",   "pantorouter-template-screw-test",   () => buildScrewTest(d),   null],
+      ["mortiseTest", "pantorouter-template-mortise-test", () => buildMortiseTest(),  null],
+      ["tenonTest",   "pantorouter-template-tenon-test",   () => buildTenonTest(),    null],
     ];
 
     for (const [partKey, baseName, build, color] of parts) {
