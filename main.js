@@ -47,7 +47,16 @@ const RAIL_UPPER_CATCH_H = RAIL_SHOULDER_Z + (RAIL_CATCH_W - RAIL_NECK_W) / 2;
 const RAIL_TIP_H = RAIL_UPPER_CATCH_H + (RAIL_CATCH_W - RAIL_TOP_FLAT) / 2;
 
 const SLOT_DEPTH = RAIL_TIP_H;
-const BASE_DEPTH = SLOT_DEPTH + 1.0;
+// Countersink for the two M4 side screws — recessed cone so flat-head
+// screws sit flush with the pocket floor (matches the printables
+// version of the design). Below the cone, COUNTERSINK_FLOOR_THICK of
+// solid material separates it from the slot ceiling.
+const COUNTERSINK_TOP_DIA    = 8.7;    // diameter at the pocket floor
+const COUNTERSINK_BOTTOM_DIA = 4.0;    // diameter where the cone ends (= M4 shaft)
+const COUNTERSINK_DEPTH      = 3.383;  // vertical depth of the cone
+const COUNTERSINK_FLOOR_THICK = 1.0;   // solid material below cone, above slot
+
+const BASE_DEPTH = SLOT_DEPTH + COUNTERSINK_FLOOR_THICK + COUNTERSINK_DEPTH;
 
 const STOP_LEN = 8.0;
 
@@ -134,6 +143,20 @@ function railBaseSolid(length, centerY) {
     [RAIL_BASE_W / 2, -RAIL_BASE_H],
   ];
   return dovetailExtrude(pts, length, centerY);
+}
+
+// Truncated-cone (frustum) recess for a flat-head screw countersink.
+// Wide opening at z = zTop, narrow at z = zTop − COUNTERSINK_DEPTH.
+function countersinkCone(zTop) {
+  return replicad
+    .drawCircle(COUNTERSINK_BOTTOM_DIA / 2)
+    .sketchOnPlane("XY", zTop - COUNTERSINK_DEPTH)
+    .extrude(COUNTERSINK_DEPTH, {
+      extrusionProfile: {
+        profile: "linear",
+        endFactor: COUNTERSINK_TOP_DIA / COUNTERSINK_BOTTOM_DIA,
+      },
+    });
 }
 
 function pilotHoleWithReference(referenceDia, zBottom, zTop) {
@@ -231,12 +254,22 @@ function buildTemplate(d) {
     pilotHoleWithReference(CENTER_DIAMETER, -1.0, BASE_DEPTH)
   );
 
-  // Two M4 screw pilots, ditto.
+  // Two M4 side-screw holes. Each hole has:
+  //   • a PILOT_DIA pilot through the entire stack (template + slot
+  //     region + rail when assembled); drill out to 4 mm post-print.
+  //   • a tapered countersink cone at the top so a flat-head screw
+  //     drops in flush with the pocket floor. The cone tapers from
+  //     COUNTERSINK_TOP_DIA at the floor down to COUNTERSINK_BOTTOM_DIA
+  //     at COUNTERSINK_DEPTH below it.
   const sy = screwYPosition(d);
   for (const yy of [-sy, +sy]) {
-    body = body.cut(
-      pilotHoleWithReference(SCREW_DIAMETER, -1.0, BASE_DEPTH).translate([0, yy, 0])
-    );
+    const pilot = replicad
+      .drawCircle(PILOT_DIA / 2)
+      .sketchOnPlane("XY", -1.0)
+      .extrude(BASE_DEPTH + 1.0)
+      .translate([0, yy, 0]);
+    body = body.cut(pilot);
+    body = body.cut(countersinkCone(BASE_DEPTH).translate([0, yy, 0]));
   }
 
   // Debossed joint-size label on the pocket floor (visible from above
