@@ -85,7 +85,7 @@ const CENTER_MARK_SIZE = 1.5;
 // confirm the slot/rail clearance feels right before committing to a
 // full-size template print.
 const TEST_LENGTH   = 20.0;  // total length of each test piece, along Y
-const TEST_STOP_LEN = 10.0;  // closed-cap region at +Y; remaining 10 mm is slide
+const TEST_STOP_LEN = 5.0;   // closed-cap region at +Y; remaining 15 mm is slide
 const TEST_WALL_T   = 1.2;   // min wall thickness around the slot in the
                              // test mortise (measured at the slot's widest
                              // point — the catch).
@@ -454,11 +454,15 @@ function buildScrewTest(d) {
 
   let assembled = body.fuse(rail);
 
-  // Drilled-through 4 mm screw clearance hole + countersink cone.
+  // Drilled-through screw clearance hole — over-drilled by 1 mm vs the
+  // nominal SCREW_DIAMETER to simulate a real-world drill that wandered
+  // a bit. If the screw still works flush in this looser hole, the
+  // tighter as-printed final piece will be fine.
+  const drilledDia = SCREW_DIAMETER + 1.0;
   const fullH = totalH + RAIL_BASE_H + 2;
   const zBot = -RAIL_BASE_H - 1;
   const drilled = replicad
-    .drawCircle(SCREW_DIAMETER / 2)
+    .drawCircle(drilledDia / 2)
     .sketchOnPlane("XY", zBot)
     .extrude(fullH)
     .translate([screwX, screwY, 0]);
