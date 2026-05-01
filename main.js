@@ -28,7 +28,7 @@ const RAIL_NECK_W = 4.0;
 const RAIL_CATCH_W = 6.0;
 const RAIL_TOP_FLAT = 3.169;
 const RAIL_BASE_W = 4.3;
-const RAIL_BASE_H = 1.4;
+const RAIL_BASE_H = 1.3;
 const RAIL_CLEARANCE = 0.2;
 
 // Lead-in chamfer length sized so the rail's bottom (where the dovetail
