@@ -432,7 +432,19 @@ function buildScrewTest(d) {
     .extrude(fullH)
     .translate([0, sy, 0]);
 
-  return assembled.intersect(slicer);
+  const piece = assembled.intersect(slicer);
+
+  // Flip vertically (180° around Y) and recenter at origin so the
+  // print bed contacts the POCKET-FLOOR side of the slice (the side
+  // with the wide end of the countersink cone). In this orientation
+  // the slice's outer profile narrows monotonically going up — no
+  // 2.95 mm bridges where the rail base meets the body. Other test
+  // pieces print in their original orientation; this one is the
+  // exception because we're not validating slot/rail printability
+  // here, just the screw/T-track interface.
+  return piece
+    .rotate(180, [0, 0, 0], [0, 1, 0])
+    .translate([0, -sy, BASE_DEPTH]);
 }
 
 // Small rectangular block with the dovetail slot — for fit-checking
