@@ -369,6 +369,62 @@ function buildAssembly(d) {
   return buildTemplate(d).fuse(buildRail(d));
 }
 
+// Small mock-up for verifying that the M4 mounting workflow actually
+// works once printed: a 10 × 10 mm vertical column carved out of the
+// assembled body + rail (built WITHOUT clearance so the parts are
+// perfectly mated, as if glued), centered on one of the side screw
+// holes, with the side hole already drilled to 4 mm clearance + the
+// countersink cone in place. Print this once at default-ish parameters
+// to make sure your screws + driver + T-track engagement all work
+// before committing to the full template print.
+function buildScrewTest(d) {
+  const totalH = BASE_DEPTH + d.TEMPLATE_DEPTH;
+  const sy = screwYPosition(d);
+  const FOOTPRINT = 10.0;
+
+  // Body without side pilots (we'll cut the 4 mm drilled hole below).
+  let body = roundedRectPrism(d.OUTER_W, d.OUTER_L, d.OUTER_R, totalH, 0);
+  body = body.cut(
+    slotDovetailSolid(d.OUTER_L - STOP_LEN + 2.0, -STOP_LEN / 2 - 1.0)
+  );
+  body = body.cut(
+    roundedRectPrism(d.INNER_W, d.INNER_L, d.INNER_R,
+                     d.TEMPLATE_DEPTH + 1, BASE_DEPTH)
+  );
+  body = body.cut(centeringVNotches(d.OUTER_W, totalH));
+
+  // Rail at full slot dimensions (zero clearance) + base bar. The
+  // dovetail upper portion uses slotDovetailSolid (matches the slot
+  // exactly), so when fused with the body the parts merge into one
+  // continuous solid with no air gap.
+  const railUpper = slotDovetailSolid(d.OUTER_L - STOP_LEN, -STOP_LEN / 2);
+  const railBase  = railBaseSolid(d.OUTER_L, 0);
+  const rail = railUpper.fuse(railBase);
+
+  let assembled = body.fuse(rail);
+
+  // Drilled-through 4 mm screw clearance hole + countersink cone.
+  const fullH = totalH + RAIL_BASE_H + 2;
+  const zBot = -RAIL_BASE_H - 1;
+  const drilled = replicad
+    .drawCircle(SCREW_DIAMETER / 2)
+    .sketchOnPlane("XY", zBot)
+    .extrude(fullH)
+    .translate([0, sy, 0]);
+  assembled = assembled.cut(drilled);
+  assembled = assembled.cut(countersinkCone(BASE_DEPTH).translate([0, sy, 0]));
+
+  // Slice out the FOOTPRINT × FOOTPRINT × full-height column centered
+  // on the screw hole.
+  const slicer = replicad
+    .drawRectangle(FOOTPRINT, FOOTPRINT)
+    .sketchOnPlane("XY", zBot)
+    .extrude(fullH)
+    .translate([0, sy, 0]);
+
+  return assembled.intersect(slicer);
+}
+
 // ── 3D preview (three.js) ───────────────────────────────────────────────────
 let scene, camera, renderer, controls;
 // Three.js objects keyed by part name ("body" / "rail") so each can be
@@ -627,12 +683,13 @@ async function generateAll() {
     const format = $("format").value === "stl" ? "stl" : "step";
 
     const parts = [
-      ["body",      "pantorouter-template-body",      () => buildTemplate(d), 0xb0b0b0],
-      ["rail",      "pantorouter-template-rail",      () => buildRail(d),     0xd9882a],
-      // Assembled is a visual reference only; fused body+rail in their
-      // as-mounted positions. Skipped for the preview render (already
-      // rendered as separate body+rail meshes there).
-      ["assembled", "pantorouter-template-assembled", () => buildAssembly(d), null],
+      ["body",      "pantorouter-template-body",       () => buildTemplate(d),  0xb0b0b0],
+      ["rail",      "pantorouter-template-rail",       () => buildRail(d),      0xd9882a],
+      // Assembled / screw-test are visual / fit-verification only.
+      // Skipped for the preview render (already rendered as separate
+      // body+rail meshes there).
+      ["assembled",  "pantorouter-template-assembled",  () => buildAssembly(d),  null],
+      ["screwTest",  "pantorouter-template-screw-test", () => buildScrewTest(d), null],
     ];
 
     for (const [partKey, baseName, build, color] of parts) {
