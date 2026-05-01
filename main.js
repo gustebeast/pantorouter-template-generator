@@ -64,11 +64,15 @@ const T_TRACK_SPACING = 20.0;
 // Minimum gap between the cone bezel's outer edge and the body's outer
 // wall when in dual-rail mode — keeps the wall from being too thin.
 const COUNTERSINK_EDGE_BUFFER = 1.0;
-// Min short-axis width the template needs for dual-rail mounting:
-// 2 × spacing for the side-screw positions + the cone diameter + buffer
-// on each side.
-const DUAL_RAIL_MIN_OUTER_W =
+// Minimum pocket-floor dimensions for dual-rail mounting. The side
+// screws (and their countersink cones) sit at (±T_TRACK_SPACING, 0) on
+// the pocket floor, so the floor must be wide enough that the cone's
+// outer edge clears the inner pocket wall by COUNTERSINK_EDGE_BUFFER on
+// the X side, and tall enough that y=0 ± cone-radius also clears in Y.
+const DUAL_RAIL_MIN_INNER_W =
   2 * T_TRACK_SPACING + COUNTERSINK_TOP_DIA + 2 * COUNTERSINK_EDGE_BUFFER;
+const DUAL_RAIL_MIN_INNER_L =
+  COUNTERSINK_TOP_DIA + 2 * COUNTERSINK_EDGE_BUFFER;
 
 const BASE_DEPTH = SLOT_DEPTH + COUNTERSINK_FLOOR_THICK + COUNTERSINK_DEPTH;
 
@@ -243,7 +247,8 @@ function deriveSizes(p) {
   // actually fit the side cones with the required edge buffer. Even
   // if the user has the box checked, we silently disable it for parts
   // that are too narrow.
-  const dualRailFeasible = OUTER_W >= DUAL_RAIL_MIN_OUTER_W;
+  const dualRailFeasible =
+    INNER_W >= DUAL_RAIL_MIN_INNER_W && INNER_L >= DUAL_RAIL_MIN_INNER_L;
   const dualRailMount = !!p.dualRailMount && dualRailFeasible;
 
   return {
@@ -435,9 +440,11 @@ function buildRail(d) {
 // geometry in a single STEP/STL file.
 function buildAssembly(d) {
   let asm = buildTemplate(d);
-  const rail = buildRail(d);
+  // Build a fresh rail per slot — `.fuse()` consumes its argument
+  // (frees the underlying OCCT shape), so the same `rail` can't be
+  // reused across iterations.
   for (const sx of slotXPositions(d)) {
-    asm = asm.fuse(rail.translate([sx, 0, 0]));
+    asm = asm.fuse(buildRail(d).translate([sx, 0, 0]));
   }
   return asm;
 }
@@ -741,28 +748,33 @@ function updateDualRailFeasibility() {
   const cb = document.getElementById("dualRailMount");
   const status = document.getElementById("dualRailStatus");
   if (!cb || !status) return;
-  let outerW;
+  let innerW, innerL;
   try {
     const p = readParams();
-    if ([p.tenonWidth, p.tenonLength, p.bit, p.bearing].some(Number.isNaN)) {
+    if ([p.tenonWidth, p.tenonLength, p.bit, p.bearing, p.shrinkComp].some(Number.isNaN)) {
       return;
     }
-    outerW = (p.tenonWidth + p.bit) * 2 - p.bearing;
+    innerW = ((p.tenonWidth - p.bit) * 2 + p.bearing) * p.shrinkComp;
+    innerL = ((p.tenonLength - p.bit) * 2 + p.bearing) * p.shrinkComp;
   } catch {
     return;
   }
-  const feasible = outerW >= DUAL_RAIL_MIN_OUTER_W;
+  const feasibleW = innerW >= DUAL_RAIL_MIN_INNER_W;
+  const feasibleL = innerL >= DUAL_RAIL_MIN_INNER_L;
+  const feasible = feasibleW && feasibleL && innerW > 0 && innerL > 0;
   cb.disabled = !feasible;
   if (!feasible) {
     cb.checked = false;
+    const limiter = !feasibleW
+      ? `pocket short axis is ${innerW.toFixed(1)} mm; needs ≥ ${DUAL_RAIL_MIN_INNER_W.toFixed(1)} mm`
+      : `pocket long axis is ${innerL.toFixed(1)} mm; needs ≥ ${DUAL_RAIL_MIN_INNER_L.toFixed(1)} mm`;
     status.textContent =
-      `Disabled — short axis is ${outerW.toFixed(1)} mm; needs ` +
-      `≥ ${DUAL_RAIL_MIN_OUTER_W.toFixed(1)} mm to fit the cone bezels ` +
-      `with ${COUNTERSINK_EDGE_BUFFER} mm edge clearance.`;
+      `Disabled — ${limiter} so the cone bezels land on the pocket ` +
+      `floor with ${COUNTERSINK_EDGE_BUFFER} mm clearance from the inner wall.`;
     status.style.color = "var(--muted)";
   } else {
     status.textContent =
-      `Available — short axis is ${outerW.toFixed(1)} mm.`;
+      `Available — pocket floor is ${innerW.toFixed(1)} × ${innerL.toFixed(1)} mm.`;
     status.style.color = "";
   }
 }
@@ -861,8 +873,24 @@ async function generateAll() {
       // so the preview reflects that by rendering a copy at each slot
       // position.
       if (partKey === "rail") {
-        for (const sx of slotXPositions(d)) {
-          addShapeToPreview(shape.translate([sx, 0, 0]), color, partKey);
+        // Mesh once at origin; place a THREE-side copy at each slot
+        // position. Translating the same replicad shape multiple times
+        // is unreliable across replicad versions (some mutate, some
+        // free the underlying OCCT shape after fuse).
+        const beforeCount = previewParts[partKey].length;
+        addShapeToPreview(shape, color, partKey);
+        const newObjs = previewParts[partKey].slice(beforeCount);
+        const positions = slotXPositions(d);
+        // First copy: move existing objects to positions[0].
+        for (const obj of newObjs) obj.position.x += positions[0];
+        // Additional copies: clone for each remaining slot position.
+        for (let i = 1; i < positions.length; i++) {
+          for (const obj of newObjs) {
+            const clone = obj.clone();
+            clone.position.x = obj.position.x - positions[0] + positions[i];
+            scene.add(clone);
+            previewParts[partKey].push(clone);
+          }
         }
       } else {
         addShapeToPreview(shape, color, partKey);
