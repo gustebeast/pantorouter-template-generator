@@ -54,7 +54,7 @@ const SLOT_DEPTH = RAIL_TIP_H;
 const COUNTERSINK_TOP_DIA    = 8.7;    // diameter at the pocket floor
 const COUNTERSINK_BOTTOM_DIA = 4.0;    // diameter where the cone ends (= M4 shaft)
 const COUNTERSINK_DEPTH      = 3.383;  // vertical depth of the cone
-const COUNTERSINK_FLOOR_THICK = 1.0;   // solid material below cone, above slot
+const COUNTERSINK_FLOOR_THICK = 0.4;   // solid material below cone, above slot
 
 const BASE_DEPTH = SLOT_DEPTH + COUNTERSINK_FLOOR_THICK + COUNTERSINK_DEPTH;
 
