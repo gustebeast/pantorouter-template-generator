@@ -959,7 +959,7 @@ async function generateAll() {
       ["rail",      "pantorouter-template-rail",         () => buildRail(d),        0xd9882a],
       // Verification / fit-test pieces. Skipped for the preview render
       // (already rendered as separate body+rail meshes there).
-      ["assembled",   "pantorouter-template-assembled",    () => buildAssembly(d),    null],
+      ["assembled",   "pantorouter-template-assembled-demo", () => buildAssembly(d),  null],
       ["screwTest",   "pantorouter-template-screw-test",   () => buildScrewTest(d),   null],
       ["mortiseTest", "pantorouter-template-mortise-test", () => buildMortiseTest(),  null],
       ["tenonTest",   "pantorouter-template-tenon-test",   () => buildTenonTest(),    null],
