@@ -126,10 +126,7 @@ async function bootKernel() {
   // pocket-floor deboss won't appear. JetBrains Mono is a CORS-friendly
   // monospace TTF on jsdelivr.
   try {
-    const font = await replicad.loadFont(
-      "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/fonts/ttf/JetBrainsMono-Regular.ttf",
-      "default"
-    );
+    const font = await replicad.loadFont("fonts/Boldwinn.ttf", "default");
     console.log("[font] loaded:", font);
   } catch (e) {
     console.error("[font] failed to load deboss font:", e);
