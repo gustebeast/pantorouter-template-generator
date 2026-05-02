@@ -35,7 +35,7 @@ once-per-browser), nothing leaves your machine.
 - **`pantorouter-template-rail`** — slides into the back of the body
   and engages the pantorouter's T-track. Prints separately to avoid
   needing structural support.
-- **`pantorouter-template-assembled`** — both pieces in their
+- **`pantorouter-template-assembled-demo`** — both pieces in their
   as-mounted positions, fused into a single solid. Visual reference
   only — print the body and rail separately.
 
@@ -76,7 +76,7 @@ Pre-generated reference outputs at the default parameters
 
 - `pantorouter-template-body.step`
 - `pantorouter-template-rail.step`
-- `pantorouter-template-assembled.step` — both pieces in their
+- `pantorouter-template-assembled-demo.step` — both pieces in their
   as-mounted positions, for visual verification only.
 
 To regenerate after a geometry change: open the live tool at default
