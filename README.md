@@ -41,12 +41,15 @@ once-per-browser), nothing leaves your machine.
 
 ## Assembly
 
-1. Print the body and the rail. **Dual rail mount:** print two copies
+1. *(Optional)* Print the test mortise and tenon and check they fit
+   together. You can also print the screw test to see how the two
+   mounting holes will fit on your Pantorouter's T track.
+2. Print the body and the rail. **Dual rail mount:** print two copies
    of the rail — one for each slot in the body.
-2. Apply super glue to the rail (each rail, for dual rail mount).
-3. Slide the rail into the body (one rail per slot for dual rail mount).
-4. Wait for the glue to cure.
-5. Use 4 mm and 6 mm drill bits to widen the pilot holes in the base
+3. Apply super glue to the rail (each rail, for dual rail mount).
+4. Slide the rail into the body (one rail per slot for dual rail mount).
+5. Wait for the glue to cure.
+6. Use 4 mm and 6 mm drill bits to widen the pilot holes in the base
    plate (the pocket floor's reference counterbores indicate which is
    which).
 
