@@ -858,8 +858,11 @@ function updateInstructions() {
   const ol = document.getElementById("instructions");
   if (!ol) return;
   const dual = !!document.getElementById("dualRailMount")?.checked;
+  const optional =
+    "(Optional) Print the test mortise and tenon and ensure they fit together well. You can also print the screw test to see how the two mounting holes will fit on your Pantorouter's T track";
   const steps = dual
     ? [
+        optional,
         "Print the body and two copies of the rail",
         "Apply super glue to each rail",
         "Slide one rail into each slot in the body",
@@ -867,6 +870,7 @@ function updateInstructions() {
         "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate",
       ]
     : [
+        optional,
         "Print the body and the rail",
         "Apply super glue to the rail",
         "Slide the rail into the body",
