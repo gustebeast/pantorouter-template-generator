@@ -29,7 +29,7 @@ const RAIL_CATCH_W = 5.9;
 const RAIL_TOP_FLAT = 3.069;
 const RAIL_BASE_W = 4.2;
 const RAIL_BASE_H = 1.3;
-const RAIL_CLEARANCE = 0.2;
+const RAIL_CLEARANCE = 0.25;  // bumped from 0.2 (print-fit preference)
 
 // Lead-in chamfer length sized so the rail's bottom (where the dovetail
 // meets the rectangular base) is exactly 4.3 mm wide at the current
@@ -46,7 +46,102 @@ const RAIL_SHOULDER_Z = _LEAD_IN_DZ;
 const RAIL_UPPER_CATCH_H = RAIL_SHOULDER_Z + (RAIL_CATCH_W - RAIL_NECK_W) / 2;
 const RAIL_TIP_H = RAIL_UPPER_CATCH_H + (RAIL_CATCH_W - RAIL_TOP_FLAT) / 2;
 
-const SLOT_DEPTH = RAIL_TIP_H;
+// ── Rail ↔ template joint: cadkit octagon ("stop sign") slide joint ──────
+// Ported from cadkit/joinery.py (vendored — that file is the canonical
+// geometry; keep this port in sync). Both halves print flat; the install
+// axis runs along the rail. The octagon width is SOLVED so the cavity
+// height stays within the legacy slot's RAIL_TIP_H budget — BASE_DEPTH's
+// countersink stack depends on it.
+const OCT_NOZZLE = 0.4;
+const OCT_STEM_FRAC = 0.5;
+
+function octTenonRoof(n, c) {
+  // Tenon top flat sized so the MORTISE roof (dilated, mitred) is one nozzle.
+  const t = n - 2.0 * c * (Math.SQRT2 - 1.0);
+  if (t <= 1e-6) throw new Error("clearance too large for nozzle");
+  return t;
+}
+
+function octWidthMin(n, c) {
+  const roofT = octTenonRoof(n, c);
+  return Math.max(n / OCT_STEM_FRAC,
+                  (n * Math.SQRT2) / (1.0 - OCT_STEM_FRAC),
+                  roofT + n * Math.SQRT2);
+}
+
+// Closed [x, z] points for the TENON cross-section — a stop sign on a
+// stem; z = 0 is the mating plane (the template's back face).
+function octProfile(width, n, baseZ, c) {
+  if (width < octWidthMin(n, c) - 1e-9) {
+    throw new Error("octagon width below printable minimum");
+  }
+  const roofT = octTenonRoof(n, c);
+  const hw = width / 2.0;
+  const stem = OCT_STEM_FRAC * width;
+  const orange = hw - stem / 2.0;   // lower 45° diagonal run
+  const green = hw - roofT / 2.0;   // upper 45° diagonal run
+  const zNeck = n;
+  const zWb = zNeck + orange;
+  const zWt = zWb + n;
+  const zRoof = zWt + green;
+  return {
+    pts: [
+      [stem / 2, baseZ], [stem / 2, zNeck], [hw, zWb], [hw, zWt],
+      [roofT / 2, zRoof], [-roofT / 2, zRoof], [-hw, zWt], [-hw, zWb],
+      [-stem / 2, zNeck], [-stem / 2, baseZ],
+    ],
+    roof: zRoof,
+  };
+}
+
+function octHeight(width, n, c) { return octProfile(width, n, 0.0, c).roof; }
+
+// Mitred outward offset of a simple closed polygon — the equivalent of
+// cadkit's offset2D(clearance, "intersection") for this profile.
+function miterOffset(pts, d) {
+  const m = pts.length;
+  let area = 0;
+  for (let i = 0; i < m; i++) {
+    const [x1, z1] = pts[i];
+    const [x2, z2] = pts[(i + 1) % m];
+    area += x1 * z2 - x2 * z1;
+  }
+  const s = area > 0 ? 1 : -1;
+  const shifted = (a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const L = Math.hypot(dx, dz);
+    const nx = (s * dz) / L, nz = (-s * dx) / L;
+    return [[a[0] + nx * d, a[1] + nz * d], [b[0] + nx * d, b[1] + nz * d]];
+  };
+  const out = [];
+  for (let i = 0; i < m; i++) {
+    const p0 = pts[(i + m - 1) % m], p1 = pts[i], p2 = pts[(i + 1) % m];
+    const [a1, a2] = shifted(p0, p1);
+    const [b1] = shifted(p1, p2);
+    const [, b2] = shifted(p1, p2);
+    const d1x = a2[0] - a1[0], d1z = a2[1] - a1[1];
+    const d2x = b2[0] - b1[0], d2z = b2[1] - b1[1];
+    const den = d1x * d2z - d1z * d2x;
+    if (Math.abs(den) < 1e-9) { out.push(a2); continue; }
+    const tt = ((b1[0] - a1[0]) * d2z - (b1[1] - a1[1]) * d2x) / den;
+    out.push([a1[0] + tt * d1x, a1[1] + tt * d1z]);
+  }
+  return out;
+}
+
+let OCT_W = null;
+for (let w = 6.0; w > 1.0; w -= 0.05) {
+  try {
+    if (octHeight(w, OCT_NOZZLE, RAIL_CLEARANCE) + RAIL_CLEARANCE
+        <= RAIL_TIP_H - 0.05) { OCT_W = w; break; }
+  } catch (e) { /* below the width floor — keep shrinking */ }
+}
+if (OCT_W === null) {
+  throw new Error("no printable octagon width fits the base-depth budget");
+}
+
+const SLOT_DEPTH =
+  octHeight(OCT_W, OCT_NOZZLE, RAIL_CLEARANCE) + RAIL_CLEARANCE;
 // Countersink for the two M4 side screws — recessed cone so flat-head
 // screws sit flush with the pocket floor (matches the printables
 // version of the design). Below the cone, COUNTERSINK_FLOOR_THICK of
@@ -181,35 +276,17 @@ function dovetailExtrude(pts, length, centerY) {
 }
 
 function slotDovetailSolid(length, centerY) {
-  const pts = [
-    [-RAIL_OPENING_HALF_W, 0.0],
-    [-RAIL_NECK_W / 2, RAIL_SHOULDER_Z],
-    [-RAIL_CATCH_W / 2, RAIL_UPPER_CATCH_H],
-    [-RAIL_TOP_FLAT / 2, RAIL_TIP_H],
-    [RAIL_TOP_FLAT / 2, RAIL_TIP_H],
-    [RAIL_CATCH_W / 2, RAIL_UPPER_CATCH_H],
-    [RAIL_NECK_W / 2, RAIL_SHOULDER_Z],
-    [RAIL_OPENING_HALF_W, 0.0],
-  ];
+  // Octagon MORTISE cavity: the tenon profile dilated by the clearance
+  // (mitred) and dropped below the mating plane so it opens through the
+  // template's back face. The name is kept so all call sites stay put.
+  const pts = miterOffset(
+    octProfile(OCT_W, OCT_NOZZLE, -1.0, RAIL_CLEARANCE).pts, RAIL_CLEARANCE);
   return dovetailExtrude(pts, length, centerY);
 }
 
 function railDovetailSolid(length, centerY) {
-  const c = RAIL_CLEARANCE;
-  const neck = RAIL_NECK_W - 2 * c;
-  const catchW = RAIL_CATCH_W - 2 * c;
-  const openHalf = RAIL_OPENING_HALF_W - c;
-  const tipZ = RAIL_TIP_H - c;
-  const pts = [
-    [-openHalf, 0.0],
-    [-neck / 2, RAIL_SHOULDER_Z],
-    [-catchW / 2, RAIL_UPPER_CATCH_H],
-    [-RAIL_TOP_FLAT / 2, tipZ],
-    [RAIL_TOP_FLAT / 2, tipZ],
-    [catchW / 2, RAIL_UPPER_CATCH_H],
-    [neck / 2, RAIL_SHOULDER_Z],
-    [openHalf, 0.0],
-  ];
+  // Octagon TENON at nominal size, rooted 1.2 mm into the rail base bar.
+  const pts = octProfile(OCT_W, OCT_NOZZLE, -1.2, RAIL_CLEARANCE).pts;
   return dovetailExtrude(pts, length, centerY);
 }
 
@@ -482,27 +559,10 @@ function buildRail(d) {
   const dtLen = d.OUTER_L - STOP_LEN - RAIL_CLEARANCE;
   const dtCenterY = -STOP_LEN / 2 - RAIL_CLEARANCE / 2;
   const dt = railDovetailSolid(dtLen, dtCenterY);
-  let rail = base.fuse(dt);
-
-  const pilotH = RAIL_BASE_H + SLOT_DEPTH + 2.0;
-  const pilotZ0 = -RAIL_BASE_H - 1.0;
-  rail = rail.cut(
-    replicad.drawCircle(PILOT_DIA / 2).sketchOnPlane("XY", pilotZ0).extrude(pilotH)
-  );
-  // Side-screw pilots — only cut the ones that actually pass through
-  // the rail (with dual-rail mount the side screws are off the long
-  // axis at ±20 mm, well outside the rail's footprint, so we skip them
-  // there).
-  for (const [sx, sy] of screwPositions(d)) {
-    if (Math.abs(sx) > RAIL_CATCH_W / 2) continue;
-    rail = rail.cut(
-      replicad
-        .drawCircle(PILOT_DIA / 2)
-        .sketchOnPlane("XY", pilotZ0)
-        .extrude(pilotH)
-        .translate([sx, sy, 0])
-    );
-  }
+  const rail = base.fuse(dt);
+  // NO holes are printed in the rail — its cross-section is too small.
+  // Drill the center/screw holes through the GLUED stack after assembly,
+  // guided by the template body's printed pilots.
   return rail;
 }
 
@@ -867,7 +927,7 @@ function updateInstructions() {
         "Apply super glue to each rail",
         "Slide one rail into each slot in the body",
         "Wait for the glue to cure",
-        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes — drill straight through the base plate AND the glued rails (rails print solid; the body's pilots guide the bit)",
       ]
     : [
         optional,
@@ -875,7 +935,7 @@ function updateInstructions() {
         "Apply super glue to the rail",
         "Slide the rail into the body",
         "Wait for the glue to cure",
-        "Use 4 mm and 6 mm drill bits to widen the pilot holes in the base plate",
+        "Use 4 mm and 6 mm drill bits to widen the pilot holes — drill straight through the base plate AND the glued rails (rails print solid; the body's pilots guide the bit)",
       ];
   ol.innerHTML = "";
   for (const s of steps) {

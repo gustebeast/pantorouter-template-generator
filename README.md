@@ -49,17 +49,22 @@ once-per-browser), nothing leaves your machine.
 3. Apply super glue to the rail (each rail, for dual rail mount).
 4. Slide the rail into the body (one rail per slot for dual rail mount).
 5. Wait for the glue to cure.
-6. Use 4 mm and 6 mm drill bits to widen the pilot holes in the base
-   plate (the pocket floor's reference counterbores indicate which is
+6. Use 4 mm and 6 mm drill bits to widen the pilot holes, drilling
+   straight through the base plate AND the glued rails (rails print
+   solid; the pocket floor's reference counterbores indicate which is
    which).
 
 ## Design
 
 Based on "Pantorouter Tenon Template" by FozzTexx (CC0 1.0). Pantograph
 math verified against The Pantorouter Co.'s sizing calculator. The
-dovetail rail uses a self-supporting "lava lamp" profile (lead-in
-chamfer + 45° flares + dulled tip), with all walls ≤ 45° from vertical
-for FDM printability.
+rail ↔ body joint is the cadkit octagon ("stop sign") slide joint —
+ported from the vendored `cadkit/joinery.py` (the canonical geometry;
+keep the port in sync). Both halves print flat with every face vertical
+or 45°; the octagon width is solved so the cavity fits the base plate's
+countersink stack. Rail clearance 0.25 mm. Rails print SOLID — no
+printed holes; after glue-up, drill the center/screw holes straight
+through the base plate and rail, guided by the body's printed pilots.
 
 ## Materials
 
@@ -72,6 +77,7 @@ compensation for material-specific calibration. Use a brim on the rail
 
 Pre-generated reference outputs at the default parameters
 (20 × 70 mm tenon, 12.7 mm bit, 12 mm bushing) live in
+**(STALE since the octagon-joint change — regenerate in the browser)**
 [`example/`](example/):
 
 - `pantorouter-template-body.step`
