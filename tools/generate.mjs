@@ -5,7 +5,7 @@
 // Runs the SAME geometry as the browser (geometry.js) under Node with the
 // npm replicad + opencascade WASM, at the UI's default parameters, and
 // rewrites example/*.step and the root sample-test files. Follow with
-//   py -3.12 tools/make_assembly.py
+//   py -3.12 -m tools.make_assembly
 // to refresh the root assembly.step for the FreeCAD viewer hub.
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
