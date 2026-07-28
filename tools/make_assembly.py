@@ -1,7 +1,7 @@
 """Compose the root assembly.step from the example part STEPs.
 
 Run after regenerating example/ in the browser:
-  py -3.12 tools/make_assembly.py
+  py -3.12 -m tools.make_assembly
 
 Unlike the browser's assembled demo (which fuses body + rail into one
 solid for visual reference), this keeps the parts SEPARATE, named and
