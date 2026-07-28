@@ -1,0 +1,81 @@
+# cadkit
+
+Small, project-agnostic helpers for **parametric 3D-printing with CadQuery** — the
+shared code behind a set of printable-hardware projects. Vendored into each project via
+`git subtree`, so every project repo stays self-contained.
+
+## Layout
+
+```
+cadkit/
+  fasteners.py       M2/M4 hole + heat-set-insert geometry (self-tap now, insert later);
+                     one FastenerSpec API, print-undersize aware
+  threads.py         self-supporting 45° FDM screw threads (read THREADS_README.md first)
+  joinery.py         printable mortise-and-tenon slide joints (read JOINERY_README.md)
+  supports.py        teardrop + 45° wall-ramp support for short SIDEWAYS bosses
+                     (horizontal cylinder off a wall, printed -Z→+Z)
+  step_export.py     export_step(obj, path) — names the STEP product after the file
+  overlap_check.py   parallel interpenetration gate (wrap in tools/check_overlaps.py)
+  cq_colors.py       hex / 0..255 / name -> cq.Color, for baking colours into a STEP
+  freecad/           OPTIONAL FreeCAD viewer hub (isolated so the core needs no FreeCAD)
+    __init__.py        `from cadkit.freecad import show`
+  tools/
+    agent_sync.py    dev-only multi-agent git-worktree coordination CLI (run as a script)
+```
+
+The **core** modules depend only on CadQuery/OCP — no FreeCAD. The FreeCAD-specific
+viewer lives in `cadkit.freecad` and is opt-in; `show()` never raises, so viewer trouble
+can't break a build.
+
+## Use
+
+```python
+from cadkit.fasteners import cut_anchor, M2, M4
+from cadkit.threads import cut_thread, threaded_rod
+from cadkit.joinery import arrow_tenon, arrow_mortise
+from cadkit.step_export import export_step
+from cadkit.overlap_check import run
+from cadkit import cq_colors
+from cadkit.freecad import show          # optional; opens/refreshes a FreeCAD viewer tab
+```
+
+A project vendors cadkit at its repo root and runs its build via `python -m` from there,
+so `cadkit` is importable with no path hack.
+
+## Vendoring into a project
+
+```
+git remote add cadkit https://github.com/gustebeast/cadkit
+git subtree add  --prefix=cadkit cadkit main --squash    # first time
+git subtree pull --prefix=cadkit cadkit main --squash    # to update later
+```
+
+## Changing cadkit — you MUST propagate to every consumer
+
+cadkit is **vendored** (copied) into each project, so the copies **drift** the
+moment the canonical repo changes — nothing forces them identical. Therefore a
+cadkit change is not *done* when you commit it; it is done when every consumer
+project has been re-pulled. **Never edit a project's vendored `cadkit/` in place** —
+edit the canonical repo, then propagate.
+
+The whole process is one command — **run it from the standalone canonical cadkit
+checkout, after committing your change there** (it refuses to run from a project's
+vendored copy):
+
+```
+py -3.12 tools/propagate.py        # pushes canonical, then re-pulls into every consumer
+```
+
+It pushes the canonical to its upstream (one source of truth), auto-discovers
+every sibling project that vendors cadkit, and re-pulls the subtree into each.
+A project with a **dirty** working tree is **skipped** (never auto-stashed) and
+reported — commit or stash there, then re-run. The exit code is the number of
+consumers *not* in sync, so `propagate.py` doubles as a gate: **0 means every
+project is current.** Use `--dry-run` to preview, `--no-push` to pull only.
+
+(The manual equivalent, per project, is `git fetch cadkit main &&
+git subtree pull --prefix=cadkit cadkit main --squash` — but do not hand-run it
+across N repos; that is exactly the step people forget, which is what drift is.)
+
+See `THREADS_README.md` and `JOINERY_README.md` before changing threads or joinery —
+both encode FDM-specific rules that fail silently if broken.
