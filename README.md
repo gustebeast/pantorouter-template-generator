@@ -11,7 +11,7 @@ STL files for both the template body and its matching rail.
 
 The browser does all the geometry locally via
 [replicad](https://replicad.xyz) (a JavaScript port of OpenCascade, the same
-CAD kernel used by FreeCAD and OnShape). After the kernel loads (~5 MB,
+CAD kernel used by FreeCAD). After the kernel loads (~5 MB,
 once-per-browser), nothing leaves your machine.
 
 ## Features
