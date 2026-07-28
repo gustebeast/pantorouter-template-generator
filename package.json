@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "replicad": "^0.21.0",
+    "replicad-opencascadejs": "^0.20.0"
+  }
+}
