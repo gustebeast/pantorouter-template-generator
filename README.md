@@ -86,7 +86,9 @@ Pre-generated reference outputs at the default parameters
   as-mounted positions, for visual verification only.
 
 To regenerate after a geometry change: open the live tool at default
-parameters, click Generate, save the three STEP files into `example/`.
+parameters, click Generate, save the three STEP files into `example/`,
+and copy the assembled demo over the root `assembly.step` (what
+`View Assembly.cmd` opens in the FreeCAD viewer hub).
 
 ## Local development
 
