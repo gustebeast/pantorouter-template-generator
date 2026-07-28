@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+"""Thin entry point FreeCAD runs on launch (see freecad/open_viewer.ps1).
+
+All the real logic is in freecad_viewer.py (same folder) so it stays shared
+across every project. This macro just reads the launcher's environment —
+FREECAD_VIEW_STEP (the initial project to open as a tab) and FREECAD_VIEW_INBOX
+(a directory later launches drop more projects into) — and starts the hub.
+Project-agnostic: the same macro serves every repo.
+"""
+
+import os
+import sys
+
+# Locate this macro's folder so we can import the shared viewer module next to
+# it. Normally __file__ is defined (FreeCAD runs the macro from its path); if it
+# isn't, the launcher (freecad_view.py) passes the dir via the environment, so we
+# never hardcode an install location.
+try:
+    _HERE = os.path.dirname(os.path.realpath(__file__))
+except NameError:
+    _HERE = os.environ.get("FREECAD_VIEW_MACRO_DIR", "").strip()
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import FreeCAD as App
+import freecad_viewer
+
+_step = os.environ.get("FREECAD_VIEW_STEP", "").strip()
+_inbox = os.environ.get("FREECAD_VIEW_INBOX", "").strip()
+if not _step and not _inbox:
+    App.Console.PrintError(
+        "[viewer] FREECAD_VIEW_STEP/INBOX not set — launch via freecad/open_viewer.ps1\n"
+    )
+else:
+    freecad_viewer.start_hub(inbox_dir=_inbox or None, initial_step=_step or None)
