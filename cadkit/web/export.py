@@ -488,6 +488,12 @@ def step_parts(path):
     return out
 
 
+class BoardsSkipped(RuntimeError):
+    """export() was given boards= and could not draw their components. The model IS
+    written, with every board as its boxes, and then this is raised: a build that asked
+    for its boards and published boxes has failed, and must say so."""
+
+
 class MeshCache:
     """mesh_shape() results kept between builds, in a folder, BY WHAT THE SHAPE IS: the
     key is a hash of the shape's own BRep bytes (its exact geometry and placement), the
@@ -634,6 +640,7 @@ def export(parts, out_dir, stem="assembly", extras=None, meshed=None, quiet=Fals
     if kept is not None:
         kept.close(quiet)
     models, plugs = {}, set()
+    boards_error = None
     if boards is not None:
         try:
             from .boards import detail, SEP, PLUG_PART, PLUG_RGB
@@ -648,9 +655,11 @@ def export(parts, out_dir, stem="assembly", extras=None, meshed=None, quiet=Fals
                     plugs.add(n)
                 elif n not in colors:
                     colors[n] = colors.get(n.split(SEP)[0], (0.8, 0.8, 0.8, 1.0))
-        except Exception as exc:          # the boxes are a complete model: never fail the export
+        except Exception as exc:          # the boxes are a complete model, and it is written;
+            import traceback              # then BoardsSkipped says the boards were asked for
             print("web boards: skipped (%s: %s) -- boards keep their boxes"
                   % (type(exc).__name__, exc))
+            boards_error = "%s: %s\n%s" % (type(exc).__name__, exc, traceback.format_exc())
             done = {n: m for n, m in done.items() if n in colors}
     glb_parts, geo = [], {}
     for name, m in done.items():
@@ -711,4 +720,7 @@ def export(parts, out_dir, stem="assembly", extras=None, meshed=None, quiet=Fals
         print("wrote %s (%d parts, %d triangles, %.1f MB) and %s (%d faces, %.1f MB)"
               % (glb.name, len(glb_parts), ntri, glb.stat().st_size / 1e6,
                  side.name, nfc, side.stat().st_size / 1e6))
+    if boards_error is not None:
+        raise BoardsSkipped("the boards' components could not be drawn (the model was "
+                            "written with boxes): " + boards_error)
     return glb, side, done
