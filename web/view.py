@@ -493,6 +493,19 @@ def _open(url, new, open_browser, out=None, by_hand=None):
         webbrowser.open(url)
 
 
+def _boards_owed(out):
+    """Say so when a project that HAS routed boards shows its model without them: its
+    boards are then boxes, and nothing else in the run would mention it."""
+    here = pathlib.Path(out).resolve()
+    for folder in [here] + list(here.parents)[:3]:
+        geoms = sorted((folder / "elec" / "geom").glob("*.json")) if (folder / "elec" / "geom").is_dir() else []
+        if geoms:
+            print("web view: THIS PROJECT HAS ROUTED BOARDS (%s) and show() was given no boards= -- "
+                  "they are drawn as boxes. cadkit/PCB_README.md section 6 is the three lines that "
+                  "put the real parts on them." % ", ".join(g.name.split(".")[0] for g in geoms[:6]))
+            return
+
+
 def assembly_parts(assembly):
     """[(name, shape, colour)] of a cadquery Assembly, every part where the assembly
     puts it: what a build already holds, so the viewer needs no STEP written and read
@@ -534,6 +547,8 @@ def show(source, root=None, title=None, open_browser=True, port=PORT, build=None
             extras.setdefault("title", title)
         if build is not None:
             extras.setdefault("build", build)
+        if export_kw.get("boards") is None:
+            _boards_owed(out)
         export_kw.setdefault("cache_dir", out / "boards")
         export(parts, out, extras=extras, **export_kw)
         (out / "stamp.json").write_text(json.dumps({"t": time.time(), "parts": len(parts)}))

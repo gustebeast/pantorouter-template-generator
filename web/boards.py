@@ -193,7 +193,8 @@ KEEP_DAYS = 30
 def _keep_in(cache_dir):
     import hashlib
     import inspect
-    from . import export as EX
+    import importlib
+    EX = importlib.import_module(__package__ + ".export")    # (the package's own `export` is the function)
     from .. import pcb as PCB
     from .. import board_geom as BG
     _KEEP.update(dir=None, hits=0, made=0)
