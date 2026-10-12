@@ -54,9 +54,10 @@ COLOURS = {
 
 # A COMPONENT MODEL carries many colours and no names, but the libraries draw their
 # metal in a handful of fixed ones (sRGB): KiCad's "metal grey pins" and "gold pins",
-# and the three cadkit.web.parts draws leads, shells and contacts in.
+# and the four cadkit.web.parts draws leads, shells, plated shells and contacts in.
 METAL_COLOURS = ((0.824, 0.820, 0.781), (0.859, 0.738, 0.496),
-                 (0.78, 0.78, 0.80), (0.70, 0.71, 0.74), (0.83, 0.68, 0.25))
+                 (0.78, 0.78, 0.80), (0.70, 0.71, 0.74), (0.86, 0.85, 0.82),
+                 (0.83, 0.68, 0.25))
 METAL_TOL = 0.02
 
 

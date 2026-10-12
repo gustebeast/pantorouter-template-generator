@@ -21,8 +21,9 @@ ever shown. This module is only how a project REACHES it:
   * a build tells it there is a new model (`notify`, called by cadkit.web.view.show):
     the project's tab reloads if it is the one shown, gets a dot if it is not. Nothing
     is opened and nothing comes forward. If the app is not running, nothing happens.
-  * with CADKIT_VIEWER=desktop in the environment, show() opens the project's tab in
-    the app (starting it, if it is installed) instead of a browser tab.
+  * the app is where a model is looked at whenever it is installed: `py -m
+    cadkit.web.view` opens the project's tab in it, starting it if it is not running.
+    A build never starts it (CADKIT_VIEWER=desktop in the environment lets it).
 
 There is ONE of it: it listens on 127.0.0.1:8136 (`CADKIT_DESKTOP_PORT` moves that) and
 answers /ping, /open?dir=..&focus=0|1 and /quit; a second start hands over and ends.
