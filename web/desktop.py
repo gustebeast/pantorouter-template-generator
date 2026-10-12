@@ -236,6 +236,21 @@ def start(*args):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
 
 
+def start_surely(*args, tries=3, wait=12.0):
+    """Start the app and SEE IT ANSWER. One started the moment another has ended can
+    come to nothing without a word (seen 2026-10-12, straight after an install: the one
+    before it had only just let go), so a start nobody answers for is made again.
+    True: the app is up."""
+    for _ in range(tries):
+        start(*args)
+        end = time.time() + wait
+        while time.time() < end:
+            if ping() is not None:
+                return True
+            time.sleep(0.25)
+    return False
+
+
 def open_project(model_dir, focus=True, launch=True):
     """`model_dir`'s tab in the app: opened in the running one (and, with `focus`, shown
     and brought in front), else in one started for it, if the program is installed and
@@ -271,7 +286,8 @@ def main(argv=None):
         print("cadkit desktop: no model in %s (build the project, and it shows itself)" % folder)
     app = ping()
     if app is None:
-        start(*(["--open", str(folder.resolve())] if has_model else []))
+        if not start_surely(*(["--open", str(folder.resolve())] if has_model else [])):
+            raise SystemExit("cadkit desktop: %s was started and never answered" % program())
         print("cadkit desktop: started %s" % program())
     else:
         ctypes.windll.user32.AllowSetForegroundWindow(int(app.get("pid", 0)))
