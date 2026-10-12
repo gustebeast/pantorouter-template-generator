@@ -405,6 +405,8 @@
       const ang = TAU * g.pulley_turns_per_mm * down;     // 1:1 pulleys
       spinNode(s.screw_pulley.node, s.screw_pulley.center, s.screw_pulley.axis,
                ang * (s.screw_pulley.sign || 1));
+      for (const n of s.screw_pulley.with || [])          // what is fixed to it: the screw itself
+        spinNode(n, s.screw_pulley.center, s.screw_pulley.axis, ang * (s.screw_pulley.sign || 1));
       spinNode(s.motor_pulley.node, s.motor_pulley.center, s.motor_pulley.axis,
                ang * (s.motor_pulley.sign || 1));
       const c = s.belt_clamp, bs = c.mm_per_mm * down;
@@ -482,6 +484,7 @@
     for (const st of rig.strings) {
       for (const n of st.carriage_nodes) s.add(n);
       s.add(st.screw_pulley.node); s.add(st.motor_pulley.node);
+      for (const n of st.screw_pulley.with || []) s.add(n);
       for (const n of st.belt_clamp.nodes) s.add(n);
     }
     for (const p of rig.pedals || []) for (const n of [...p.swing_nodes, ...p.piston_nodes]) s.add(n);
