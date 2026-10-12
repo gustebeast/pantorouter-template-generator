@@ -509,7 +509,8 @@ def assembly_parts(assembly):
         shapes = [s for s in shapes if isinstance(s, cq.Shape)]
         if shapes:
             shape = shapes[0] if len(shapes) == 1 else cq.Compound.makeCompound(shapes)
-            parts.append((name, shape.moved(loc), node.color))
+            parts.append((name, shape.moved(loc), node.color,
+                          (getattr(node, "metadata", None) or {}).get("material")))
     return parts
 
 

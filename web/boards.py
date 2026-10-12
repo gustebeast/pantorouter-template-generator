@@ -60,6 +60,7 @@ import math
 import os
 import pathlib
 import pickle
+import sys
 
 import numpy as np
 
@@ -179,14 +180,101 @@ def load_model(path):
 
 _MODELS = {}
 
+# WHAT A COMPONENT'S MODEL COSTS IS PAID ONCE, not once a build: every mesh made here is
+# kept in detail()'s cache_dir under a hash of EVERYTHING it was made from -- the model
+# file's bytes, or the generator's inputs, and in both cases the source of the code that
+# makes it (this module, cadkit.web.parts, cadkit.pcb and the mesher). Nothing is keyed
+# on a time: a changed input or changed code is a different file name, so an entry
+# cannot be stale, only unused (and one unread for KEEP_DAYS is deleted).
+_KEEP = {"dir": None, "salt": None, "hits": 0, "made": 0}
+KEEP_DAYS = 30
+
+
+def _keep_in(cache_dir):
+    import hashlib
+    import inspect
+    from . import export as EX
+    from .. import pcb as PCB
+    from .. import board_geom as BG
+    _KEEP.update(dir=None, hits=0, made=0)
+    if cache_dir is None:
+        return
+    h = hashlib.sha1()
+    for mod in (sys.modules[__name__], WP, PCB, BG):
+        h.update(inspect.getsource(mod).encode("utf-8"))
+    h.update(inspect.getsource(EX.mesh_shape).encode("utf-8"))
+    h.update(repr((MODEL_TOLERANCE, EX.ANGULAR, EX.FORMAT)).encode())
+    _KEEP.update(dir=pathlib.Path(cache_dir) / "models", salt=h.digest())
+
+
+def _kept(what, make):
+    """make()'s result, from the cache if `what` (bytes: all it is made from) has been
+    made before by this same code."""
+    import hashlib
+    if _KEEP["dir"] is None:
+        return make()
+    f = _KEEP["dir"] / (hashlib.sha1(_KEEP["salt"] + what).hexdigest() + ".pkl")
+    try:
+        got = pickle.loads(f.read_bytes())
+        os.utime(f)
+        _KEEP["hits"] += 1
+        return got
+    except Exception:
+        pass
+    got = make()
+    _KEEP["made"] += 1
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_name("%s.%d.tmp" % (f.name, os.getpid()))
+        tmp.write_bytes(pickle.dumps(got, protocol=pickle.HIGHEST_PROTOCOL))
+        os.replace(tmp, f)
+    except OSError:
+        pass
+    return got
+
+
+def _keep_done(log):
+    import time
+    if _KEEP["dir"] is None:
+        return
+    old = time.time() - KEEP_DAYS * 86400
+    try:
+        for f in _KEEP["dir"].glob("*.pkl"):
+            if f.stat().st_mtime < old:
+                f.unlink()
+    except OSError:
+        pass
+    log("web boards: %d component mesh(es) kept from earlier builds, %d made"
+        % (_KEEP["hits"], _KEEP["made"]))
+
+
+def _facts(*things):
+    """Bytes that say what `things` are, the same in every run: numbers by repr, arrays
+    by their own bytes, dicts by sorted key."""
+    def norm(x):
+        if isinstance(x, np.ndarray):
+            return ["nd", x.shape, x.astype(np.float64).tobytes().hex()]
+        if isinstance(x, dict):
+            return {str(k): norm(v) for k, v in sorted(x.items(), key=lambda kv: str(kv[0]))}
+        if isinstance(x, (list, tuple)):
+            return [norm(v) for v in x]
+        if isinstance(x, (str, int, float, bool)) or x is None:
+            return x
+        return repr(x)
+    return json.dumps(norm(things), sort_keys=True).encode("utf-8")
+
 
 def model_mesh(path):
     """mesh_shape() of a model file, with per-vertex colour; None if it will not load."""
     if path not in _MODELS:
         from .export import mesh_shape, ANGULAR
-        try:
+
+        def make():
             comp, cols = load_model(path)
-            _MODELS[path] = mesh_shape(comp, MODEL_TOLERANCE, ANGULAR, face_colors=cols, copy=False)
+            return mesh_shape(comp, MODEL_TOLERANCE, ANGULAR, face_colors=cols, copy=False)
+        try:
+            with open(path, "rb") as fh:
+                _MODELS[path] = _kept(b"model" + fh.read(), make)
         except Exception as exc:
             print("web boards: %s will not load (%s)" % (os.path.basename(path), exc))
             _MODELS[path] = None
@@ -329,7 +417,13 @@ def _reference_inks(boards, cache_dir):
 def _own_part(f, h, t, pose, panel, edge=None, tip=None):
     """A part drawn by cadkit.web.parts, meshed where it stands: a mesh_shape() result
     with per-vertex colour, or None when there is no generator for it (or it fails: a
-    box is a complete model, so this never costs the export)."""
+    box is a complete model, so this never costs the export). Kept between builds by
+    its inputs (_kept)."""
+    return _kept(b"own" + _facts(f, h, t, pose, panel, edge, tip),
+                 lambda: _own_part_made(f, h, t, pose, panel, edge, tip))
+
+
+def _own_part_made(f, h, t, pose, panel, edge=None, tip=None):
     from .export import mesh_shape, ANGULAR
     from OCP.gp import gp_Trsf
     from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
@@ -372,15 +466,18 @@ def _plug_part(boards, board, ref, pose):
     from OCP.gp import gp_Trsf
     from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
     try:
-        solid = boards.plug_solid(board, ref)
-        if solid is None:
-            return None
-        R, tr = pose[:3, :3], pose[:3, 3]
-        trsf = gp_Trsf()
-        trsf.SetValues(R[0, 0], R[0, 1], R[0, 2], tr[0], R[1, 0], R[1, 1], R[1, 2], tr[1],
-                       R[2, 0], R[2, 1], R[2, 2], tr[2])
-        placed = BRepBuilderAPI_Transform(_topods(solid), trsf, True).Shape()
-        return mesh_shape(placed, MODEL_TOLERANCE, ANGULAR, copy=False)
+        def make():
+            solid = boards.plug_solid(board, ref)
+            if solid is None:
+                return None
+            R, tr = pose[:3, :3], pose[:3, 3]
+            trsf = gp_Trsf()
+            trsf.SetValues(R[0, 0], R[0, 1], R[0, 2], tr[0], R[1, 0], R[1, 1], R[1, 2], tr[1],
+                           R[2, 0], R[2, 1], R[2, 2], tr[2])
+            placed = BRepBuilderAPI_Transform(_topods(solid), trsf, True).Shape()
+            return mesh_shape(placed, MODEL_TOLERANCE, ANGULAR, copy=False)
+        # the plug is its record (series, ways, where it sits) and nothing else
+        return _kept(b"plug" + _facts(boards.plug(board, ref), pose), make)
     except Exception as exc:
         print("web boards: %s %s -- its plug could not be drawn: %s" % (board, ref, exc))
         return None
@@ -405,6 +502,7 @@ def detail(meshed, shape_of, boards, cache_dir=None, log=print):
     if _model_dirs()[1] is None and not _model_dirs()[0]:
         log("web boards: KiCad's 3D models are not on this machine -- boards keep their boxes")
         return models_geo
+    _keep_in(cache_dir)
     inks = _reference_inks(boards, cache_dir)
     if not inks:
         return models_geo
@@ -776,4 +874,5 @@ def detail(meshed, shape_of, boards, cache_dir=None, log=print):
     log("web boards: %d JST plug(s) seated in their headers%s"
         % (stats["plugs"], ", %d more are parts of the project's own" % stats["theirs"]
            if stats["theirs"] else ""))
+    _keep_done(log)
     return models_geo
