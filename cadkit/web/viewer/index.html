@@ -172,7 +172,7 @@
       <div class="btn" id="bLight">light<span class="k">l</span></div>
       <div class="btn" id="bUndo">undo<span class="k">z</span></div>
       <div class="btn" id="bRedo">redo<span class="k">x</span></div>
-      <div class="btn" id="bShowAll" style="display:none">show all<span class="k">u</span></div>
+      <div class="btn" id="bShowAll" style="display:none">show all<span class="k">t</span></div>
     </div>
     <div class="panel" id="secPanel">
       <h4>section cut</h4>
@@ -1266,7 +1266,7 @@
       case 'f': selAction('fam'); return;
       case 'z': undo(); return;
       case 'x': undo(true); return;
-      case 'u': showAll(); return;
+      case 't': showAll(); return;
       case 'l': setQuality(quality + 1, true); return;
     }
     const p = keyToPedal[e.key]; if (!p || e.repeat) return;
